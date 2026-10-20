@@ -2,6 +2,13 @@
 
 Every morning this links yesterday's connected HubSpot calls to the deal they were about, and to the right contact.
 
+Two ways to run it:
+
+- **HubSpot workflow** (each call, ~15 minutes after it ends): see [hubspot/SETUP.md](hubspot/SETUP.md). The code is `hubspot/custom-code.js`.
+- **GitHub Action** (once a day): set up below. The code is `associate_calls.py`.
+
+Both use the same matching rules.
+
 ## How a call is matched
 
 1. **Picks up calls**: completed calls from yesterday (Melbourne time) with a duration above 0 that have no deal yet.
@@ -38,6 +45,7 @@ pip install -r requirements.txt
 export HUBSPOT_TOKEN=... ANTHROPIC_API_KEY=...
 DRY_RUN=true python associate_calls.py   # writes report.csv
 python -m pytest -q
+node --test tests/custom-code.test.js   # HubSpot custom code
 ```
 
 ## Settings
