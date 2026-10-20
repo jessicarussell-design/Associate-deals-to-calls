@@ -5,6 +5,9 @@ from associate_calls import (
     booking_numbers,
     customer_number,
     deal_booking_number,
+    deal_line,
+    match_booking,
+    open_deal_count,
     phones_match,
     summary_text,
     yesterday_window,
@@ -50,3 +53,64 @@ def test_yesterday_window_is_full_melbourne_day():
     start, end = yesterday_window(datetime(2026, 10, 14, 6, 0, tzinfo=TIMEZONE))
     assert start == datetime(2026, 10, 13, tzinfo=TIMEZONE)
     assert (end - start).days == 1
+
+
+def _deal(deal_id, name, closed=False, **props):
+    return {"id": deal_id, "properties": {"dealname": name, "hs_is_closed": "true" if closed else "false", **props}}
+
+
+ICELAND = _deal("1", "(1529953) 21 Day Follow the Lights to Iceland")
+JAPAN = _deal("2", "(1449977) 14 Day Japan")
+SOMEONE_ELSES = _deal("9", "(1600001) 18-Day Essential South Africa")
+
+
+def test_booking_on_callers_deal_links():
+    action, deal, _ = match_booking({"1": ICELAND}, {"1": ICELAND, "2": JAPAN}, caller_known=True)
+    assert action == "link" and deal is ICELAND
+
+
+def test_booking_on_someone_elses_deal_is_skipped():
+    action, deal, note = match_booking({"9": SOMEONE_ELSES}, {"1": ICELAND}, caller_known=True)
+    assert action == "skip" and deal is None
+    assert "not on the caller's deals" in note
+
+
+def test_booking_ignores_other_customers_deal_when_one_is_theirs():
+    action, deal, _ = match_booking({"1": ICELAND, "9": SOMEONE_ELSES}, {"1": ICELAND}, caller_known=True)
+    assert action == "link" and deal is ICELAND
+
+
+def test_several_of_callers_bookings_go_to_claude():
+    action, deal, _ = match_booking({"1": ICELAND, "2": JAPAN}, {"1": ICELAND, "2": JAPAN}, caller_known=True)
+    assert action == "ask_claude" and deal is None
+
+
+def test_unknown_caller_single_booking_links():
+    action, deal, _ = match_booking({"9": SOMEONE_ELSES}, {}, caller_known=False)
+    assert action == "link" and deal is SOMEONE_ELSES
+
+
+def test_unknown_caller_several_bookings_is_skipped():
+    action, _, _ = match_booking({"1": ICELAND, "9": SOMEONE_ELSES}, {}, caller_known=False)
+    assert action == "skip"
+
+
+def test_no_booking_goes_to_claude():
+    assert match_booking({}, {"1": ICELAND}, caller_known=True)[0] == "ask_claude"
+
+
+def test_open_deal_count():
+    assert open_deal_count([ICELAND, JAPAN, _deal("3", "Old trip", closed=True)]) == 2
+
+
+def test_deal_line_shows_stage_and_departure():
+    deal = _deal("1", "(1529953) Iceland", dealstage="s1", departure_date="2027-02-14", createdate="2026-05-01T00:00:00Z")
+    line = deal_line(deal, {"s1": "Bookings: Deposit paid"})
+    assert "stage Bookings: Deposit paid" in line
+    assert "departs 2027-02-14" in line
+
+
+def test_deal_line_falls_back_to_preferred_date():
+    deal = _deal("2", "Japan enquiry", preferred_departure_date="2027-04-01")
+    assert "departs 2027-04-01" in deal_line(deal, {})
+    assert "departs unknown" in deal_line(_deal("3", "No dates"), {})

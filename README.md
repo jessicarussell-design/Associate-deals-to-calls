@@ -6,9 +6,10 @@ Every morning this links yesterday's connected HubSpot calls to the deal they we
 
 1. **Picks up calls**: completed calls from yesterday (Melbourne time) with a duration above 0 that have no deal yet.
 2. **Finds the customer**: the contact already on the call. If Aircall logged it against a placeholder "Aircall new contact", it looks the customer up by phone number.
-3. **Booking number first**: if the Aircall call summary mentions a booking number that matches exactly one deal name, e.g. `(1529953) 21 Day Follow the Lights to Iceland`, that deal wins.
-4. **Otherwise Claude reads the summary** next to the customer's deals and picks one. It links only when Claude is highly confident. Everything else is skipped and listed in the report.
-5. **Fixes the contact**: the call is also linked to the deal's contact if it wasn't already. Existing links are never removed. Suspect ones are flagged in the report instead.
+3. **Booking number first**: if the Aircall call summary mentions a booking number that matches a deal name, e.g. `(1529953) 21 Day Follow the Lights to Iceland`, that deal wins, but **only if it is one of the caller's own deals**. A booking on someone else's deal is skipped and flagged for a person, so a typo never links the wrong deal. When the caller can't be identified at all, a single booking number is still used.
+4. **Several open deals, no booking number**: the call is skipped and flagged rather than guessed (turn off with `STRICT_OPEN_DEALS=false`).
+5. **Otherwise Claude reads the summary** next to the customer's own deals, including each deal's stage and departure date, and picks one. It links only when Claude is highly confident. Everything else is skipped and listed in the report.
+6. **Fixes the contact**: the call is also linked to the deal's contact if it wasn't already. Existing links are never removed. Suspect ones are flagged in the report instead.
 
 ## Setup (one time)
 
@@ -45,6 +46,7 @@ python -m pytest -q
 | --- | --- | --- |
 | `DRY_RUN` | `true` | `false` writes associations to HubSpot |
 | `CLAUDE_MODEL` | `claude-opus-5-5` | Model used to read call summaries |
+| `STRICT_OPEN_DEALS` | `true` | Skip calls when the customer has several open deals and no booking number settles it |
 | `TIMEZONE` | `Australia/Melbourne` | Defines "yesterday" |
 | `OWN_PHONE_NUMBERS` | empty | Numbers never treated as the customer |
 | `REPORT_PATH` | `report.csv` | Where the report is written |
