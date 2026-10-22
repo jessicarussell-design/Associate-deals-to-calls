@@ -1,6 +1,6 @@
 ---
 name: iv-skills-cs-escalation-watch
-description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. ACCC, Fair Trading, chargeback and legal words go straight to Red Melbourne (CS MEL - Escalations). Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers and posts nothing to Slack or anywhere else: HubSpot notes and the run summary are the only record. Runs in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
+description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. Official letters only (Fair Trading, ACCC, a lawyer's letter, a letter of demand, a bank chargeback notice) go straight to Red Melbourne (CS MEL - Escalations); a customer just mentioning them is judged as a normal strike. Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers and posts nothing to Slack or anywhere else: HubSpot notes and the run summary are the only record. Runs in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
 ---
 
 # CS Escalation Watch
@@ -167,10 +167,30 @@ Not strikes:
 
 ### Hard triggers (skip the line)
 
-Check every customer message since our last reply, case-insensitive.
+**Only official correspondence skips the line.** A customer simply
+mentioning ACCC, Fair Trading or legal action does NOT skip. Judge that
+message like any other: it is usually a strike, and the ticket moves one
+step as normal.
 
-| Words | Action |
+| Skips straight to Red: Melbourne | Does NOT skip (judge as normal) |
 |---|---|
+| A letter or email FROM Fair Trading, ACCC, Consumer Affairs, an ombudsman or a tribunal (e.g. VCAT, NCAT) | "I'll report you to the ACCC" |
+| A letter from a lawyer or solicitor acting for the customer | "I'm going to take legal action" |
+| A formal letter of demand | "This isn't fair under ACCC rules" |
+| A chargeback or dispute notice from the customer's bank or card provider | "I'll do a chargeback" |
+
+Signs it is official: it comes from the agency, firm or bank (not the
+customer), or the customer attaches or forwards it, or it is set out as a
+formal notice (reference number, legal headings, a deadline to respond).
+
+Action: set **Red: Melbourne** straight away, whatever the current level.
+It lands in CS MEL - Escalations. For Fair Trading the note also says
+"Fair Trading: for Loren".
+
+If unsure whether it is official, treat it as official: these are the
+cases where waiting costs most.
+
+---|---|
 | ACCC, Fair Trading, chargeback, charge back, dispute with my bank, lawyer, solicitor, legal action, sue, tribunal | Set **Red: Melbourne** straight away, whatever the current level. It lands in CS MEL - Escalations. For Fair Trading the note also says "Fair Trading: for Loren" |
 
 Read the sentence, not just the word. "No need for legal action, thanks"
