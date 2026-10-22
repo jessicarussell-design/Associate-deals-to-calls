@@ -1,6 +1,6 @@
 ---
 name: iv-skills-cs-escalation-watch
-description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. ACCC, chargeback and legal words go straight to Red TL; Fair Trading goes to Melbourne for Loren. Tickets only, never tasks. Never replies to customers. Runs in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
+description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. ACCC, chargeback and legal words go straight to Red TL; Fair Trading goes to Melbourne for Loren. Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers and posts nothing to Slack or anywhere else: HubSpot notes and the run summary are the only record. Runs in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
 ---
 
 # CS Escalation Watch
@@ -21,10 +21,14 @@ Source of truth for the rules: the "CS escalation ladder: proposal" doc
   resolves every judgement call by the rules below, and reports after.
 - **Ambiguity resolves to the least destructive option.** If unsure
   whether something is a strike, it is NOT a strike. List it under
-  "Watching" in the Slack post instead.
+  "Watching" in the run summary instead.
 - **One step at a time.** Never move a ticket more than one level in a
   run. The only exceptions are the hard triggers.
-- **Never move a ticket down.** Only a person lowers a level.
+- **Never move a ticket down a level.** Only a person lowers a level.
+  The one thing the skill takes away is the whole colour, when the
+  customer is happy or the ticket is solved (STEP 3b).
+- **No Slack, no messages, no emails.** The skill posts nothing anywhere.
+  The ticket note and the run summary are the only record.
 - **The number of emails never counts.** A long, friendly thread that is
   moving along stays where it is.
 
@@ -35,14 +39,17 @@ Source of truth for the rules: the "CS escalation ladder: proposal" doc
 Every run is in exactly one mode. Read it from the prompt that started
 the run. **If the prompt does not say, use DRY RUN.**
 
-| Mode | Writes to HubSpot | Slack post |
+| Mode | Writes to HubSpot | Run summary |
 |---|---|---|
-| DRY RUN | Nothing | Every call it would make, for checking |
-| PRACTICE | Escalation Level + ticket note | Every change, one line each, for TLs to mark right or wrong |
-| LIVE | Escalation Level + ticket note | Short summary only |
+| DRY RUN | Nothing | Every call it would make, for a Team Leader to check (build Step 3) |
+| PRACTICE | Escalation Level + ticket note | Every change, one line each |
+| LIVE | Escalation Level + ticket note | Counts and hard triggers only |
 
 During PRACTICE the T1 views do not filter on Escalation Level yet, so
-T1 keeps every ticket. LIVE starts when the T1 filter is added.
+T1 keeps every ticket. Team Leaders check the "Escalation watch" note on
+each moved ticket in their views. If a call is wrong, they set the
+colour back and add a note starting `Escalation watch: wrong`. LIVE
+starts when the T1 filter is added (build Step 7).
 
 ---
 
@@ -70,7 +77,7 @@ colon today and may be tidied to `Amber_T2`. Never hardcode it blindly.
 | Green: T1 | second strike | Amber: T2 |
 | Amber: T2 | strike | Red: TL |
 | Red: TL | strike | Red: Melbourne |
-| Red: Melbourne | strike | No change. Flag in Slack: "still unhappy at Melbourne" |
+| Red: Melbourne | strike | No change. Add a note "still unhappy at Melbourne" and list it in the run summary |
 
 ---
 
@@ -101,6 +108,10 @@ colon today and may be tidied to `Amber_T2`. Never hardcode it blindly.
      since.
    - **Reopened:** `hs_ticket_reopened_at` is within the last 24 hours.
 
+   Also pull, separately, **closed tickets with a colour**: pipeline `0`,
+   stage Closed `4`, `escalation_level` HAS_PROPERTY, closed in the last
+   7 days. These are for STEP 3b only.
+
    Properties to fetch: `subject`, `hs_pipeline_stage`,
    `hubspot_owner_id`, `escalation_level`, `last_reply_date`,
    `hs_last_message_received_at`, `hs_last_message_sent_at`,
@@ -117,7 +128,8 @@ colon today and may be tidied to `Amber_T2`. Never hardcode it blindly.
 For each candidate, read the ticket's notes. If a note starting
 `Escalation watch:` already names the same customer message timestamp,
 **skip the ticket**. That message has been judged. This makes the skill
-safe to run twice in a day.
+safe to run twice in a day, and stops it re-escalating a ticket a Team
+Leader has set back with an `Escalation watch: wrong` note.
 
 ---
 
@@ -141,7 +153,10 @@ Other strikes:
 - **No reply from us for 2 business days** after the customer wrote:
   one strike.
 - **Reopen** because the problem isn't fixed: one strike. A reopen with
-  a "thank you" is not a strike.
+  a "thank you" is not a strike. If the colour was cleared when the
+  ticket closed, restore the level from the last `Escalation watch:`
+  note first, then move it up one step. A closed-then-reopened ticket
+  keeps its place on the ladder.
 
 Not strikes:
 
@@ -157,7 +172,7 @@ Check every customer message since our last reply, case-insensitive.
 | Words | Action |
 |---|---|
 | ACCC, chargeback, charge back, dispute with my bank, lawyer, solicitor, legal action, sue, tribunal | Set **Red: TL** straight away, whatever the current level (unless already Red: Melbourne) |
-| Fair Trading | Set **Red: Melbourne** and flag "for Loren" in Slack |
+| Fair Trading | Set **Red: Melbourne**. The note says "Fair Trading: for Loren" |
 
 Read the sentence, not just the word. "No need for legal action, thanks"
 is not a trigger. If unsure, treat it as a trigger: these are the cases
@@ -184,8 +199,19 @@ For each strike or hard trigger:
 DRY RUN writes nothing. It only reports.
 
 **Safety cap:** if a run would change more than 40 tickets, stop after
-the hard triggers, write nothing else, and say so in Slack. A number
-that high means the rules or the data have gone wrong.
+the hard triggers, write nothing else, and say so at the top of the run
+summary. A number that high means the rules or the data have gone wrong.
+
+### STEP 3b: clear the colour when it's fixed
+
+For the closed tickets pulled in STEP 0, and any open ticket judged
+**Fixed / happy**:
+
+- Closed ticket with a colour: clear `escalation_level` (set it empty)
+  and add a note `Escalation watch: cleared, ticket solved ([old level])`.
+  The note keeps the record, so a reopen can restore the level.
+- Open ticket where the customer says it's sorted: leave the colour
+  until the ticket is closed. Whoever fixed it closes it as normal.
 
 ---
 
@@ -195,23 +221,25 @@ that high means the rules or the data have gone wrong.
 - Never creates, edits, assigns or completes tasks.
 - Never touches the MNL T2 daily assignment or its Daily Signal.
 - Never changes ticket owner, status, pipeline, priority or category.
-- Never moves a ticket down a level, or clears a level.
+- Never moves a ticket down a level. It only clears the colour on a
+  solved ticket (STEP 3b).
 - Never changes anything in Lorikeet.
+- Never posts to Slack, or sends a message or email of any kind.
 
 ---
 
-## STEP 4: report to Slack
+## STEP 4: run summary (no Slack)
 
-Post ONE message per run to the agreed channel (default: AI CS space,
-`C0C1YK6BVDH`, until the owner names another). Plain English. Always
-refer to a ticket by booking number and a HubSpot link, never by ID
-alone.
+End every run with ONE plain-English summary as the run's final output.
+It shows in the routine's run history. **Do not post it to Slack or
+send it anywhere.** Always refer to a ticket by booking number and a
+HubSpot link, never by ID alone.
 
 **DRY RUN and PRACTICE:**
 
 ```
-Escalation watch, [Mon 2pm] ([MODE])
-Moved up: [n]  |  Watching: [n]  |  Hard triggers: [n]
+Escalation watch, [Mon 2pm Manila] ([MODE])
+Moved up: [n]  |  Cleared: [n]  |  Watching: [n]  |  Hard triggers: [n]
 
 1. [Booking] [link]  Green -> Amber (T2)
    Customer still disputes the $400 fee after our second reply.
@@ -220,15 +248,19 @@ Moved up: [n]  |  Watching: [n]  |  Hard triggers: [n]
 Watching (not moved):
 - [Booking] [link]  Customer sounds annoyed but got a reply this morning.
 
-Team Leaders: react ✅ if a call is right, ❌ if it's wrong.
+Marked wrong by a Team Leader since last run: [n]
 ```
 
 **LIVE:** counts per level, any hard triggers, anything stuck at
 Red: Melbourne, and anything for Loren. No per-ticket list unless it is
 a hard trigger.
 
-If nothing needs moving, still post one line: "Escalation watch: nothing
-to move this run."
+**Practice score:** count the `Escalation watch: wrong` notes against the
+moves made, over the last 7 days, and show it as "[x] of [y] right ([z]%)".
+Build Step 7 switches to LIVE at 85% or better.
+
+If nothing needs moving, the summary is one line: "Escalation watch:
+nothing to move this run."
 
 ---
 
@@ -236,7 +268,6 @@ to move this run."
 
 - Run times (draft: start of the Manila shift and mid-afternoon, Manila
   time, Monday to Friday) and whether to run at weekends.
-- Slack channel.
 - Time limits for T2 and the Team Leader before a ticket moves up. Until
   agreed, the 2 business day no-reply rule applies at every level.
 - Whether other pipelines (e.g. Flights, Operations) should be watched.
