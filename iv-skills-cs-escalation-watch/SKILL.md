@@ -132,6 +132,10 @@ Leader has set back with an `Escalation watch: wrong` note.
 
 ## STEP 2: read the thread and judge
 
+**Two points at T1.** The first strike marks the ticket Green and T1
+tries again. The second strike moves it to Amber (T2). After that, each
+strike moves it one more step.
+
 Read the conversation with `search_conversations`, `objectType=TICKET`,
 `objectId=<ticket id>`, `messageDetail=WITH_ROLE`.
 
@@ -142,7 +146,7 @@ context of the whole thread. Decide ONE of:
 |---|---|---|
 | **Fixed / happy** | "Thanks, that's sorted", "Perfect" | No |
 | **Moving along** | Sends info we asked for, asks a new, simple question, friendly back and forth | No |
-| **Unhappy** | The tone is unhappy: "That doesn't answer my question", "Still not fixed", repeats the same ask, frustration, threats to cancel or complain, "this is the third time" | **Yes** |
+| **Unhappy or unresolved** | The tone is unhappy, or our reply didn't fix it: "That doesn't answer my question", "Still not fixed", repeats the same ask, frustration, threats to cancel or complain, "this is the third time" | **Yes** |
 | **Needs an answer sooner** | Not sorted yet and time matters: travelling within 7 days or on tour now, missing flights, transfers or documents close to departure, a payment or cancellation deadline, stranded, or a health or safety worry | **Yes** |
 | **Not sure** | Can't tell | No. List under "Watching" |
 
