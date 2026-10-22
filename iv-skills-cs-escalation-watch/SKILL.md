@@ -1,6 +1,6 @@
 ---
 name: iv-skills-cs-escalation-watch
-description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. Official letters only (Fair Trading, ACCC, a lawyer's letter, a letter of demand, a bank chargeback notice) go straight to Red Melbourne (CS MEL - Escalations); a customer just mentioning them is judged as a normal strike. Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers and posts nothing to Slack or anywhere else: HubSpot notes and the run summary are the only record. Runs in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
+description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. Official letters only (Fair Trading, ACCC, a lawyer's letter, a letter of demand, a bank chargeback notice) go straight to Red Melbourne (CS MEL - Escalations); a customer just mentioning them is judged as a normal strike. Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers and posts nothing to Slack or anywhere else: HubSpot notes and the run summary are the only record. Runs 8am and 2pm Manila, Monday to Friday, in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
 ---
 
 # CS Escalation Watch
@@ -120,6 +120,22 @@ colon today and may be tidied to `Amber_T2`. Never hardcode it blindly.
 
 ---
 
+## First run only: catch up from history
+
+The first time the skill runs in PRACTICE or LIVE (no ticket in scope has
+an `escalation_level` and no `Escalation watch:` notes exist yet), count
+strikes from the **whole thread history** of each candidate, not just
+the latest message, so long-running complaints start where they belong:
+
+- One strike in the history: Green: T1.
+- Two or more strikes: Amber: T2. Never higher than Amber from history
+  alone; Red only comes from new strikes or a hard trigger.
+- The note says `Escalation watch: catch-up from history ([n] strikes)`.
+
+The safety cap does not apply to this first catch-up run.
+
+---
+
 ## STEP 1: skip what is already judged
 
 For each candidate, read the ticket's notes. If a note starting
@@ -162,10 +178,20 @@ Other strikes:
   note first, then move it up one step. A closed-then-reopened ticket
   keeps its place on the ladder.
 
+Who counts as the customer:
+
+- **Travel agents** writing on behalf of a customer count as the
+  customer. Judge them the same way.
+- **Replies to marketing or event emails** (newsletters, "are you
+  ready?", travel show follow-ups) are ignored. Never a strike.
+- Suppliers, airlines, automated notices and our own staff are never
+  the customer.
+
 Not strikes:
 
 - The customer's very first message on a ticket, unless it **needs an
-  answer sooner**. We haven't replied yet.
+  answer sooner**. An urgent first message (e.g. "I fly Monday and have
+  no tickets") IS the first strike.
 - A rule-based hand-off from Miles (inside 7 days, Perseus edits and
   similar). Miles handing over a cross customer, or the customer coming
   back after Miles said it was sorted, IS a strike.
@@ -194,13 +220,6 @@ It lands in CS MEL - Escalations. For Fair Trading the note also says
 
 If unsure whether it is official, treat it as official: these are the
 cases where waiting costs most.
-
----|---|
-| ACCC, Fair Trading, chargeback, charge back, dispute with my bank, lawyer, solicitor, legal action, sue, tribunal | Set **Red: Melbourne** straight away, whatever the current level. It lands in CS MEL - Escalations. For Fair Trading the note also says "Fair Trading: for Loren" |
-
-Read the sentence, not just the word. "No need for legal action, thanks"
-is not a trigger. If unsure, treat it as a trigger: these are the cases
-where waiting costs most.
 
 ---
 
@@ -288,8 +307,11 @@ nothing to move this run."
 
 ---
 
-## Open questions (owner to confirm)
+## Schedule
 
-- Run times (draft: start of the Manila shift and mid-afternoon, Manila
-  time, Monday to Friday) and whether to run at weekends.
+Twice a day, Monday to Friday: **8am and 2pm Manila time** (Asia/Manila).
+No weekend runs. Agreed with Jess, Oct 2026.
+
+## Open question
+
 - Whether other pipelines (e.g. Flights, Operations) should be watched.
