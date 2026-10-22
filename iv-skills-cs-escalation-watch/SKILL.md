@@ -120,19 +120,17 @@ colon today and may be tidied to `Amber_T2`. Never hardcode it blindly.
 
 ---
 
-## First run only: catch up from history
+## Fresh start: no back-dating
 
-The first time the skill runs in PRACTICE or LIVE (no ticket in scope has
-an `escalation_level` and no `Escalation watch:` notes exist yet), count
-strikes from the **whole thread history** of each candidate, not just
-the latest message, so long-running complaints start where they belong:
+**Never count strikes from before go-live.** The first run starts every
+ticket at blank, and only customer messages that arrive from then on
+can earn a point. Older frustration in a thread is context for judging a
+new message, but it is never a point on its own. This stops T2 being
+flooded with old tickets on day one (Jess, Oct 2026).
 
-- One strike in the history: Green: T1.
-- Two or more strikes: Amber: T2. Never higher than Amber from history
-  alone; Red only comes from new strikes or a hard trigger.
-- The note says `Escalation watch: catch-up from history ([n] strikes)`.
-
-The safety cap does not apply to this first catch-up run.
+So on the first runs, tickets can only reach Green (first point) or,
+for official letters, Red: Melbourne. Amber comes later, from a second
+new point.
 
 ---
 
