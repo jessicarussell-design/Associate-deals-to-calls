@@ -156,6 +156,19 @@ point (an `Escalation watch:` note) and we have not replied since, a new
 customer email earns nothing more. A calm "any update?" chaser is never
 a point.
 
+**What counts as "our reply".** Only a real answer counts: a person
+replying, or Miles actually answering the customer's question. These do
+NOT count as a reply, so they never open the door to a second point:
+
+- Automatic acknowledgements ("We've received your email", "Thanks for
+  contacting us, we'll be in touch", ticket-number emails).
+- Out-of-office or holding replies with no answer in them.
+- Miles only saying he is passing the ticket to a person.
+- Internal notes and comments the customer never sees.
+
+If our only message since the last point is one of these, treat the
+customer's new email as part of the same point.
+
 **Two points at T1.** The first strike marks the ticket Green and T1
 tries again. The second strike moves it to Amber (T2). After that, each
 strike moves it one more step.
