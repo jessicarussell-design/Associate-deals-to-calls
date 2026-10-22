@@ -1,6 +1,6 @@
 ---
 name: iv-skills-cs-escalation-watch
-description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. ACCC, chargeback and legal words go straight to Red TL; Fair Trading goes to Melbourne for Loren. Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers and posts nothing to Slack or anywhere else: HubSpot notes and the run summary are the only record. Runs in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
+description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. ACCC, Fair Trading, chargeback and legal words go straight to Red Melbourne (CS MEL - Escalations). Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers and posts nothing to Slack or anywhere else: HubSpot notes and the run summary are the only record. Runs in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
 ---
 
 # CS Escalation Watch
@@ -171,8 +171,7 @@ Check every customer message since our last reply, case-insensitive.
 
 | Words | Action |
 |---|---|
-| ACCC, chargeback, charge back, dispute with my bank, lawyer, solicitor, legal action, sue, tribunal | Set **Red: TL** straight away, whatever the current level (unless already Red: Melbourne) |
-| Fair Trading | Set **Red: Melbourne**. The note says "Fair Trading: for Loren" |
+| ACCC, Fair Trading, chargeback, charge back, dispute with my bank, lawyer, solicitor, legal action, sue, tribunal | Set **Red: Melbourne** straight away, whatever the current level. It lands in CS MEL - Escalations. For Fair Trading the note also says "Fair Trading: for Loren" |
 
 Read the sentence, not just the word. "No need for legal action, thanks"
 is not a trigger. If unsure, treat it as a trigger: these are the cases
