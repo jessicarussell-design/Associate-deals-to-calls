@@ -103,9 +103,6 @@ colon today and may be tidied to `Amber_T2`. Never hardcode it blindly.
    - **Customer wrote last:** `hs_last_message_from_visitor` = true, or
      `last_reply_date` / `hs_last_message_received_at` is later than
      `hs_last_message_sent_at`.
-   - **No reply from us:** the customer's last message is more than
-     2 business days old (Manila, Mon to Fri) and we have not replied
-     since.
    - **Reopened:** `hs_ticket_reopened_at` is within the last 24 hours.
 
    Also pull, separately, **closed tickets with a colour**: pipeline `0`,
@@ -145,13 +142,16 @@ context of the whole thread. Decide ONE of:
 |---|---|---|
 | **Fixed / happy** | "Thanks, that's sorted", "Perfect" | No |
 | **Moving along** | Sends info we asked for, asks a new, simple question, friendly back and forth | No |
-| **Unhappy or unresolved** | "That doesn't answer my question", "Still not fixed", repeats the same ask, frustration, threats to cancel or complain, "this is the third time" | **Yes** |
+| **Unhappy** | The tone is unhappy: "That doesn't answer my question", "Still not fixed", repeats the same ask, frustration, threats to cancel or complain, "this is the third time" | **Yes** |
+| **Needs an answer sooner** | Not sorted yet and time matters: travelling within 7 days or on tour now, missing flights, transfers or documents close to departure, a payment or cancellation deadline, stranded, or a health or safety worry | **Yes** |
 | **Not sure** | Can't tell | No. List under "Watching" |
+
+**Time alone is never a strike.** How long the customer has waited, or
+how many emails there are, does not move a ticket by itself. Only the
+tone, or a real need for a faster answer, does.
 
 Other strikes:
 
-- **No reply from us for 2 business days** after the customer wrote:
-  one strike.
 - **Reopen** because the problem isn't fixed: one strike. A reopen with
   a "thank you" is not a strike. If the colour was cleared when the
   ticket closed, restore the level from the last `Escalation watch:`
@@ -160,7 +160,8 @@ Other strikes:
 
 Not strikes:
 
-- The customer's very first message on a ticket. We haven't replied yet.
+- The customer's very first message on a ticket, unless it **needs an
+  answer sooner**. We haven't replied yet.
 - A rule-based hand-off from Miles (inside 7 days, Perseus edits and
   similar). Miles handing over a cross customer, or the customer coming
   back after Miles said it was sorted, IS a strike.
@@ -287,6 +288,4 @@ nothing to move this run."
 
 - Run times (draft: start of the Manila shift and mid-afternoon, Manila
   time, Monday to Friday) and whether to run at weekends.
-- Time limits for T2 and the Team Leader before a ticket moves up. Until
-  agreed, the 2 business day no-reply rule applies at every level.
 - Whether other pipelines (e.g. Flights, Operations) should be watched.
