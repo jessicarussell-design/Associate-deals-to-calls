@@ -1,6 +1,6 @@
 ---
 name: iv-skills-cs-escalation-watch
-description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. Official letters only (Fair Trading, ACCC, a lawyer's letter, a letter of demand, a bank chargeback notice) go straight to Red Melbourne (CS MEL - Escalations); a customer just mentioning them is judged as a normal strike. Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers; posts nothing to Slack. Runs 8am and 2pm Manila, Monday to Friday, in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
+description: Twice-daily CS escalation watch. Reads open Support Tickets where the customer has written since our last reply, judges whether the customer is still unhappy or the problem is still unresolved (never by email count), and moves the ticket one step up the ladder by setting the ticket property Escalation Level (Green T1, Amber T2, Red TL, Red Melbourne) plus a short ticket note saying why. Official letters only (from Fair Trading, ACCC, a tribunal, a lawyer, or a bank chargeback notice) go straight to Red Melbourne (CS MEL - Escalations); a customer just mentioning them is judged as a normal strike. Clears the colour when the customer is happy or the ticket is solved. Tickets only, never tasks. Never replies to customers; posts nothing to Slack. Runs 8am and 2pm Manila, Monday to Friday, in DRY RUN, PRACTICE or LIVE mode. Trigger on "run the escalation watch", "check for unhappy customers", "escalation ladder run", or the twice-daily routine.
 ---
 
 # CS Escalation Watch
@@ -148,6 +148,14 @@ Leader has set back with an `Escalation watch: wrong` note.
 
 ## STEP 2: read the thread and judge
 
+**One point per reply from us.** A ticket can earn at most ONE point
+between two of our replies. However many emails the customer sends in a
+row, they count as one point until we (an agent or Miles) reply and the
+customer writes back still unhappy. So if the ticket already earned a
+point (an `Escalation watch:` note) and we have not replied since, a new
+customer email earns nothing more. A calm "any update?" chaser is never
+a point.
+
 **Two points at T1.** The first strike marks the ticket Green and T1
 tries again. The second strike moves it to Amber (T2). After that, each
 strike moves it one more step.
@@ -213,19 +221,21 @@ step as normal.
 |---|---|
 | A letter or email FROM Fair Trading, ACCC, Consumer Affairs, an ombudsman or a tribunal (e.g. VCAT, NCAT) | "I'll report you to the ACCC" |
 | A letter from a lawyer or solicitor acting for the customer | "I'm going to take legal action" |
-| A formal letter of demand | "This isn't fair under ACCC rules" |
+| A letter of demand from a lawyer acting for the customer | A "formal letter of demand" the customer writes themselves, even with a deadline or a threat to go to VCAT or Consumer Affairs |
 | A chargeback or dispute notice from the customer's bank or card provider | "I'll do a chargeback" |
 
-Signs it is official: it comes from the agency, firm or bank (not the
-customer), or the customer attaches or forwards it, or it is set out as a
-formal notice (reference number, legal headings, a deadline to respond).
+Signs it is official: it comes FROM the agency, tribunal, law firm or
+bank (not written by the customer), or the customer attaches or forwards
+a letter that came from one of them. A letter the customer writes
+themselves is never official, however formal it looks: judge it as a
+normal point (Jess, Oct 2026).
 
 Action: set **Red: Melbourne** straight away, whatever the current level.
 It lands in CS MEL - Escalations. For Fair Trading the note also says
 "Fair Trading: for Loren".
 
-If unsure whether it is official, treat it as official: these are the
-cases where waiting costs most.
+If unsure whether it came from an official body, it is NOT official:
+judge it as a normal point.
 
 ---
 
