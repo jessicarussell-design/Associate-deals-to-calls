@@ -181,15 +181,21 @@ Who counts as the customer:
 - **Travel agents** writing on behalf of a customer count as the
   customer. Judge them the same way.
 - **Replies to marketing or event emails** (newsletters, "are you
-  ready?", travel show follow-ups) are ignored. Never a strike.
+  ready?", travel show follow-ups): judge them by **what they say**, not
+  by which email they reply to. A real booking problem or complaint is
+  judged like any other message (e.g. a customer on tour who missed a
+  flight). Only ignore them when there is no booking problem in them
+  ("unsubscribe", "thanks, sounds great").
 - Suppliers, airlines, automated notices and our own staff are never
   the customer.
 
 Not strikes:
 
-- The customer's very first message on a ticket, unless it **needs an
-  answer sooner**. An urgent first message (e.g. "I fly Monday and have
-  no tickets") IS the first strike.
+- The customer's very first message on a ticket, unless it is
+  **upset** or **needs an answer sooner**. An upset first message (an
+  angry complaint, a refund dispute) or an urgent one (e.g. "I fly Monday
+  and have no tickets") IS the first strike. A calm first question is
+  not.
 - A rule-based hand-off from Miles (inside 7 days, Perseus edits and
   similar). Miles handing over a cross customer, or the customer coming
   back after Miles said it was sorted, IS a strike.
