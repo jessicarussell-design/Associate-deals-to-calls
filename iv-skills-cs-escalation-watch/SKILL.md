@@ -122,9 +122,11 @@ colon today and may be tidied to `Amber_T2`. Never hardcode it blindly.
 
 ## Fresh start: no back-dating
 
-**Never count strikes from before go-live.** The first run starts every
-ticket at blank, and only customer messages that arrive from then on
-can earn a point. Older frustration in a thread is context for judging a
+**Never count strikes from before go-live.** The routine prompt gives
+the **go-live date** (Asia/Manila). Only customer messages received on
+or after that date can earn a point. If the prompt gives no go-live
+date, only judge customer messages from the last 24 hours. The first run
+starts every ticket at blank. Older frustration in a thread is context for judging a
 new message, but it is never a point on its own. This stops T2 being
 flooded with old tickets on day one (Jess, Oct 2026).
 
