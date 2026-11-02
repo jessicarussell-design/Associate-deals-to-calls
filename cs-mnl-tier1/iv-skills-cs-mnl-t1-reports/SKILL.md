@@ -11,8 +11,8 @@ Answers the "Report Requests" tab and the two monitoring reports on the
 (`1E8L74BmWHCaswazNv-yYUT85YB2_4xXZeSlDBc_1ZAE`).
 
 All dates and day boundaries are **Asia/Manila** unless a row says
-otherwise. Every number in a post says what it measures ("14 tickets
-closed", never "14").
+otherwise. Every number on the dashboard says what it measures ("14
+tickets closed", never "14").
 
 ---
 
@@ -95,7 +95,7 @@ Scope: pipeline `0`, `hs_ticket_category` not containing
 | Chat Response Time | Average time from customer's first message to first agent reply |
 | Closed Chats per Agent | Closed chats grouped by the assigned agent |
 
-If chat data can't be reached, print "Chats: not available today" and
+If chat data can't be reached, show "Chats: not available this run" and
 carry on. Never drop the whole report over one source.
 
 ---
@@ -111,7 +111,7 @@ Open = NOT_STARTED, IN_PROGRESS, WAITING, DEFERRED. Age from
 | Closed task, T1 (per agent) | `hs_task_completion_date` in window, those queues, grouped by owner |
 | Opening task, T2 | Open at window start in `10404111`, `3384069`, `6217900`, `8643140`, `12818856` |
 | Closed task, T2 | Completed in window, T2 queues |
-| 360 task | **To confirm with Jess.** Until then, tasks whose subject contains "360". Print "(definition to confirm)" next to it. |
+| 360 task | **A specific queue, ID to confirm with Jess.** Until then show "queue to confirm". |
 | Average TAT, T1 / T2 | Average (`hs_task_completion_date` - `hs_createdate`) on tasks completed in the window, in business days |
 | CS Pending Enquiry Task | Open tasks in `4046613` whose subject starts with `Enquiry Pending` |
 | Remaining task | Open T1 tasks at window end |
@@ -130,7 +130,7 @@ One row per agent per day.
 | Actioned per day | Owned tickets with an agent email or message sent during the shift (`hs_last_message_sent_at` or `first_agent_reply_date` in the window), or a stage change, closed or not |
 | Closed per day | `closed_date` in the shift, owned by the agent |
 | Remaining pending | Open tickets owned at shift end |
-| Target achievement % | Closed ÷ target. Print "n/a" when the target is X. |
+| Target achievement % | Closed ÷ target. Show "n/a" when the target is X. |
 
 **Keep the three apart:** assigned (given to them), actioned (they
 worked it), closed (finished). A ticket can be all three in one day,
@@ -163,36 +163,32 @@ and "historical comparison" in the request, with no extra tool.
 Re-running a day replaces that day's rows for that shift (delete, then
 append), so a re-run never double counts.
 
-### 2. Dashboard
+### 2. Live dashboard (the only place reports are shown)
 
-Weekly and monthly runs publish a live dashboard via iv-insights
-(`upload_report`, then `update_report` each run to keep one URL):
-per-agent target achievement trend, calls volume and MCR trend, aged
-ticket buckets, task open vs closed. Follow the dataviz skill.
+**No Slack posts.** Reports never post to the AI CS space or anywhere
+else (Jess, 2 Nov 2026). Every run, daily, weekly and monthly, refreshes
+ONE live dashboard and that is the whole output.
 
-### 3. Slack post
+Publish it once via iv-insights (`upload_report`), then `update_report`
+on every run so the URL never changes. Layout follows the approved
+preview (https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd):
 
-Slack conversation `C0C1YK6BVDH` (AI CS space) until Jess names a
-dedicated Tier 1 channel. One post per run.
+- **Filters** across the top: date range, shift, store, agent.
+- **Headline tiles**: target achieved %, assigned, actioned, closed,
+  still pending, pending at start.
+- **Tickets closed vs target per day** chart.
+- **Calls, chats and tasks** list (every Report Requests metric).
+- **Ticket productivity by agent** table.
+- **Task monitoring** table.
+- **Shift assignment** panel: the latest summary from
+  `iv-skills-cs-mnl-t1-shift-assignment` (read from the Assignment Log).
+- **Weekly / monthly** views: same panels with "vs previous period".
 
-    Morning shift wrap, Mon 2 Nov.
+Embed the rows from the two history tabs as the dashboard's data so
+the filters work on the full history. Follow the dataviz skill.
 
-    *Calls* T1: 182 inbound, 41 outbound, 6.0% missed. TA: 37 inbound, 9 outbound, 4.1% missed (6am-2pm).
-    *Tickets* 212 open at start, 18 aged 4+ days. 61 closed. First reply in 3.2h on average, closed in 1.8 days.
-    *Chats* 44 closed, 82% resolved first contact, 1m 40s to first reply.
-    *Tasks* T1: 96 open at start, 38 closed, 70 left. T2: 140 open, 22 closed. 11 pending enquiries.
-
-    *Against target*
-    - *Ella*: 5 of 5 tickets closed (100%), 18 of 20 tasks.
-    - *Kate*: 3 of 5 tickets closed (60%), 4 still pending.
-
-    Full detail in the CS Roster sheet, T1 Daily Productivity tab.
-
-Weekly and monthly posts: the same lines for the period, the change vs
-the previous period ("up 12% on last week"), the top and bottom three
-target achievement, and the dashboard link.
-
-Only agents who were `IN`. If a source failed, one line saying which.
+If a source fails, the dashboard still refreshes, with a one-line
+banner naming the source ("Calls not updated this run").
 
 ---
 
@@ -200,3 +196,5 @@ Only agents who were `IN`. If a source failed, one line saying which.
 
 - 2 Nov 2026: created (Jess), from the "Report Requests" and
   "Automation and Rule" tabs.
+- 2 Nov 2026 (Jess): no Slack posts. All reporting lives on one live
+  dashboard, refreshed every run.

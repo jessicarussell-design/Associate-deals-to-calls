@@ -43,14 +43,14 @@ built as three iv-skills playbooks that run as Cowork scheduled tasks.
 ## Set up
 
 1. Submit each `SKILL.md` to the iv-skills broker (`submit_iv_playbook`).
-2. Create the Cowork scheduled tasks using the cron lines in each playbook.
+2. Approve the preview, then create the Cowork scheduled tasks using the cron lines in each playbook.
 3. Review the first preview posts, then set the assignment to LIVE.
 
 ## Open questions
 
-1. **Slack destination**: defaults to AI CS space (`C0C1YK6BVDH`). Is
-   there a Tier 1 leads channel instead?
-2. **360 task**: which queue or subject is it?
+1. **Reports**: no Slack, one live dashboard only. Preview:
+   https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd
+2. **360 task**: which queue is it?
 3. **Call Backs queue** (`6411820`): assign it too, or report only?
 4. **Chats**: confirm chats are HubSpot chat conversations.
 5. **Store routing**: tickets have no store field, so it is inferred from
