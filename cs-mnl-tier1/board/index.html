@@ -401,9 +401,7 @@ function renderLive(){
     `<div class="stat"><span class="label">Open with agents</span><span class="val">${dash(open)}</span><span class="sub">tickets held right now</span></div>`,
     `<div class="stat${un&&un.length>15?" alert":""}"><span class="label">Unassigned tickets</span><span class="val">${un?un.length:"…"}</span><span class="sub">${un?(un.length?"oldest "+oldest+" days":"queue is clear"):"loading"}</span></div>`,
     `<div class="stat${urgent?" alert":""}"><span class="label">Urgent unassigned</span><span class="val">${dash(urgent)}</span><span class="sub">on tour or marked urgent</span></div>`,
-    `<div class="stat"><span class="label">Open T1 tasks</span><span class="val">${live.tasks?live.tasks.length:"…"}</span><span class="sub">${live.tasks?Object.values(overdueBy).reduce((a,b)=>a+b,0)+" past due":"held by agents"}</span></div>`,
-    (()=>{const ns=TEAM.filter(a=>presence(a)==="notseen");const loading=TEAM.some(a=>presence(a)==="unknown");
-      return `<div class="stat${ns.length?" alert":""}"><span class="label">On sheet, not seen yet</span><span class="val">${loading&&!ns.length?"…":ns.length}</span><span class="sub">${ns.length?esc(ns.map(a=>a.name).join(", "))+": no calls, emails or notes since shift start":"everyone rostered is working"}</span></div>`})()
+    `<div class="stat"><span class="label">Open T1 tasks</span><span class="val">${live.tasks?live.tasks.length:"…"}</span><span class="sub">${live.tasks?Object.values(overdueBy).reduce((a,b)=>a+b,0)+" past due":"held by agents"}</span></div>`
   ].join("");
 
   const q=(name,obj,desc)=>`<div class="q"><span>${name}</span><span class="n">${obj?obj.total:"…"}</span><span class="d">${desc(obj)}</span></div>`;
