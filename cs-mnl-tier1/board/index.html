@@ -146,6 +146,14 @@ svg text{fill:var(--muted);font:11px var(--body)}
 .chipbtn b{font:800 .95rem var(--display)}
 .chipbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .agentblock{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.agentblock>button.head{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--panel-2)}
+.agentblock>button.head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.agentblock>button.head b{font:700 1rem var(--display)}
+.agentblock>button.head .cnt{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:.84rem;color:var(--muted)}
+.chev{display:inline-block;transition:transform .15s;color:var(--muted)}
+.agentblock.open .chev{transform:rotate(90deg)}
+.agentblock.open>button.head{border-bottom:1px solid var(--line)}
+#taskdetail{gap:6px}
 .agentblock>header{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;justify-content:space-between;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--line)}
 .agentblock>header b{font:700 1rem var(--display)}
 .agentblock>header span{font-size:.84rem;color:var(--muted)}
@@ -274,7 +282,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
       <div class="panel-head"><h2>Task Monitoring Report</h2><span class="muted small" id="task-live"></span></div>
       <p class="muted small">Live from HubSpot. Assigned and completed count within the dates picked above; pending and overdue are right now.</p>
       <div class="tablewrap"><table id="tasks"></table></div>
-      <div class="panel-head"><h3>Every task, by agent</h3><span class="muted small" id="task-count"></span></div>
+      <div class="panel-head"><h3>Tasks by agent</h3><span class="muted small" id="task-count"></span></div>
       <div class="chips" id="taskchips" role="group" aria-label="Show tasks"></div>
       <div class="grid" id="taskdetail"></div>
     </div>
@@ -592,7 +600,7 @@ function renderReports(){
     (days.map(d=>{const pp=d.target?Math.round(100*d.closed/d.target):0;const dd=new Date(d.date+"T00:00:00Z");return `<tr><td>${dd.toUTCString().slice(0,11)}</td><td class="r">${d.target}</td><td class="r">${d.pendingStart}</td><td class="r">${d.assigned}</td><td class="r">${d.actioned}</td><td class="r">${d.closed}</td><td class="r">${d.remaining}</td><td>${pill(pp)}</td></tr>`}).join("")||`<tr><td colspan="8" class="muted">Nothing in this range.</td></tr>`)+"</tbody>";
   renderTasks();
 }
-let TASKVIEW="all";const EXPANDED={};
+let TASKVIEW="attention";const EXPANDED={};const OPENAG={};
 function renderTasks(){
   const el=$("tasks");if(!el)return;
   const f={from:$("f-from").value,to:$("f-to").value,shift:$("f-shift").value,store:$("f-store").value,agent:$("f-agent").value};
@@ -621,18 +629,20 @@ function renderTasks(){
   const kind=r=>!isOpen(r)?"done":overdue(r)?"overdue":(P(r).hs_timestamp&&mDay(Date.parse(P(r).hs_timestamp))===today)?"today":"open";
   const inScope=all.filter(r=>isOpen(r)||inR(P(r).hs_task_completion_date));
   const counts={overdue:0,today:0,open:0,done:0};inScope.forEach(r=>{const k=kind(r);counts[k]++;if(k!=="done"&&k!=="open")counts.open++});
-  const chips=[["all","All",inScope.length],["overdue","Overdue",counts.overdue],["today","Due today",counts.today],["open","Open",counts.open],["done","Completed",counts.done]];
+  const chips=[["attention","Needs attention",counts.overdue+counts.today],["all","All",inScope.length],["overdue","Overdue",counts.overdue],["today","Due today",counts.today],["open","Open",counts.open],["done","Completed",counts.done]];
   $("taskchips").innerHTML=chips.map(c=>`<button type="button" class="chipbtn" data-k="${c[0]}" aria-pressed="${TASKVIEW===c[0]}">${c[1]} <b>${c[2]}</b></button>`).join("");
   $("taskchips").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{TASKVIEW=b.dataset.k;renderTasks()}));
-  const show=r=>{const k=kind(r);return TASKVIEW==="all"||TASKVIEW===k||(TASKVIEW==="open"&&k!=="done")};
+  const show=r=>{const k=kind(r);return TASKVIEW==="all"||TASKVIEW===k||(TASKVIEW==="open"&&k!=="done")||(TASKVIEW==="attention"&&(k==="overdue"||k==="today"))};
   const order={overdue:0,today:1,open:2,done:3};
   const blocks=agents.map(a=>{const mine=inScope.filter(r=>P(r).hubspot_owner_id===a.id&&show(r)).sort((x,y)=>order[kind(x)]-order[kind(y)]||(Date.parse(P(x).hs_timestamp||P(x).hs_createdate)-Date.parse(P(y).hs_timestamp||P(y).hs_createdate)));
     return{a,mine}}).filter(b=>b.mine.length);
-  $("task-count").textContent=inScope.length+" tasks · overdue first";
+  $("task-count").textContent="Click a name to see their tasks";
   $("taskdetail").innerHTML=blocks.map(({a,mine})=>{
     const all_=inScope.filter(r=>P(r).hubspot_owner_id===a.id);const o=all_.filter(isOpen).length,ov=all_.filter(overdue).length,dn=all_.length-o;
-    const lim=EXPANDED[a.id]?mine.length:8;
-    return `<section class="agentblock"><header><b>${esc(a.name)}</b><span>${o} open${ov?` · <span class="late">${ov} overdue</span>`:""} · ${dn} completed in these dates</span></header>
+    const lim=EXPANDED[a.id]?mine.length:5;const isOpenBlock=OPENAG[a.id]||!!f.agent;
+    const head=`<button type="button" class="head" data-ag="${a.id}" aria-expanded="${isOpenBlock}"><span><span class="chev" aria-hidden="true">▸</span> <b>${esc(a.name)}</b></span><span class="cnt">${ov?`<span class="pill bad">${ov} overdue</span>`:""}<span>${o} open</span><span>·</span><span>${dn} done</span><span>·</span><span>${mine.length} in this view</span></span></button>`;
+    if(!isOpenBlock) return `<section class="agentblock">${head}</section>`;
+    return `<section class="agentblock open">${head}
     <div class="tablewrap"><table><colgroup><col><col class="c-st"><col class="c-as"><col class="c-du"><col class="c-ag"><col class="c-co"></colgroup><thead><tr><th>Task</th><th>Status</th><th>Assigned on</th><th>Due</th><th class="r">Age</th><th>Completed on</th></tr></thead><tbody>`+
     mine.slice(0,lim).map(r=>{const p=P(r);const k=kind(r);
       const st=k==="done"?`<span class="pill ok">Done</span>`:k==="overdue"?`<span class="pill bad">Overdue</span>`:k==="today"?`<span class="pill warn">Due today</span>`:(p.hs_task_status==="WAITING"||p.hs_task_status==="DEFERRED")?`<span class="pill waitp">Waiting</span>`:`<span class="pill acc">${p.hs_task_status==="IN_PROGRESS"?"In progress":"Not started"}</span>`;
@@ -642,6 +652,7 @@ function renderTasks(){
         <td>${dueTxt(r)}</td><td class="r">${age} day${age===1?"":"s"}${isOpen(r)?"":`<br><small class="muted">to finish</small>`}</td>
         <td>${isOpen(r)?`<span class="muted">Not yet</span>`:`<span class="when">${day(p.hs_task_completion_date)}<small>${hm(p.hs_task_completion_date)}</small></span>`}</td></tr>`}).join("")+
     `</tbody></table></div>${mine.length>lim?`<button type="button" class="more" data-agent="${a.id}">Show ${mine.length-lim} more</button>`:""}</section>`}).join("")||`<p class="muted">No tasks match.</p>`;
+  $("taskdetail").querySelectorAll("button.head").forEach(b=>b.addEventListener("click",()=>{OPENAG[b.dataset.ag]=!OPENAG[b.dataset.ag];renderTasks()}));
   $("taskdetail").querySelectorAll(".more").forEach(b=>b.addEventListener("click",()=>{EXPANDED[b.dataset.agent]=true;renderTasks()}));
   $("task-live").textContent=live.at?"Live · "+fmtTime(live.at):"";
 }
