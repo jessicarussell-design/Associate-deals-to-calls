@@ -143,9 +143,17 @@ def from_compact(c):
     for i, line in enumerate(c.get("done_today", [])):
         o, cr, asg, due, comp, sub = (line.split("|", 5) + [""] * 6)[:6]
         done.append({"id": f"d{i}", "properties": {k: v for k, v in (("hubspot_owner_id", o), ("hs_task_status", "COMPLETED"), ("hs_createdate", cr), ("hubspot_owner_assigneddate", asg), ("hs_timestamp", due), ("hs_task_completion_date", comp), ("hs_task_subject", sub)) if v}})
+    def manila_day(iso):
+        # done_counts are grouped by Manila day (UTC+8); match done_today on the same basis
+        try:
+            from datetime import datetime, timedelta
+            return (datetime.fromisoformat(iso.replace("Z", "+00:00")) + timedelta(hours=8)).strftime("%Y-%m-%d")
+        except Exception:
+            return iso[:10]
     today_ids = {}
     for r in done:
-        today_ids[(r["properties"].get("hubspot_owner_id"), r["properties"].get("hs_task_completion_date", "")[:10])] = today_ids.get((r["properties"].get("hubspot_owner_id"), r["properties"].get("hs_task_completion_date", "")[:10]), 0) + 1
+        k = (r["properties"].get("hubspot_owner_id"), manila_day(r["properties"].get("hs_task_completion_date", "")))
+        today_ids[k] = today_ids.get(k, 0) + 1
     for owner, day, n in c.get("done_counts", []):
         n = int(n) - today_ids.get((str(owner), day), 0)   # don't double count rows listed in done_today
         for i in range(max(0, n)):
