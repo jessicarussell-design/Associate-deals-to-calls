@@ -709,9 +709,9 @@ fillAgents();setDefaultRange();renderClock();renderLive();renderLog();renderRepo
 setInterval(()=>{renderClock();renderLive()},60000);
 if(SNAP){
   const age=SNAP.generatedAt?Math.round((Date.now()-SNAP.generatedAt)/60000):null;
-  setHsChip(age!=null&&age>90?"stale":"live","Updated "+(SNAP.generatedAt?fmtTime(SNAP.generatedAt)+" Manila":"")+" · refreshes hourly");
+  setHsChip(age!=null&&age>300?"stale":"live","Updated "+(SNAP.generatedAt?fmtTime(SNAP.generatedAt)+" Manila":"")+" · refreshes every 4 hours");
   $("db-chip").hidden=true;
-  if(age!=null&&age>90) hsNotice("This copy hasn't refreshed for "+Math.round(age/60)+" hours. The hourly update may have stopped.",false);
+  if(age!=null&&age>300) hsNotice("This copy hasn't refreshed for "+Math.round(age/60)+" hours. The hourly update may have stopped.",false);
 }
 if(!SNAP){
 (async()=>{

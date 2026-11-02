@@ -10,7 +10,7 @@ Everything requested in the **CS Roster** sheet
 | Shared board (team opens this, IV login, no Claude) | https://mcp-insights.inspiringvacations.com/reports/production/0be7350e-c68f-4f48-af48-d9f7099cd43c |
 | Claude board (live every 3 min, Claude users) | https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd |
 | Board source | `board/index.html`; `board/build_snapshot.py` bakes data in for IV Insights |
-| Playbooks (source of truth) | IV skills broker: `iv-skills-cs-mnl-t1-shift-assignment`, `iv-skills-cs-mnl-t1-daily-signal`, `iv-skills-cs-mnl-t1-reports`, `iv-skills-cs-mnl-t1-board-publish` (hourly IV Insights refresh) |
+| Playbooks (source of truth) | IV skills broker: `iv-skills-cs-mnl-t1-shift-assignment`, `iv-skills-cs-mnl-t1-daily-signal`, `iv-skills-cs-mnl-t1-reports`, `iv-skills-cs-mnl-t1-board-publish` (IV Insights refresh every 4 hours) |
 
 Edit the playbooks through the broker (`revise_iv_playbook`), not here.
 
