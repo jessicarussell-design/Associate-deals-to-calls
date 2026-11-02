@@ -21,6 +21,7 @@
   --ok:#6cc08d; --warn:#e3a54a; --bad:#e17b7b; --wait:#a5a9c2;
   --ok-soft:#163125; --warn-soft:#382a13; --bad-soft:#3a1c1c; --wait-soft:#232539; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .wrap{max-width:1180px;margin:0 auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
@@ -122,7 +123,8 @@ td.r,th.r{text-align:right}
 .mgroup{display:grid;gap:0;align-content:start}
 .mgroup h3{padding-bottom:6px;border-bottom:2px solid var(--accent);margin-bottom:2px}
 .mgroup div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.9rem}
-.mgroup b{font:500 .88rem var(--mono);white-space:nowrap}
+.mgroup b{font:500 .88rem var(--mono);white-space:nowrap;text-align:right}
+.mgroup span{min-width:0}
 .delta{font:600 .75rem var(--display);margin-left:6px}
 .delta.up{color:var(--ok)} .delta.down{color:var(--bad)}
 svg text{fill:var(--muted);font:11px var(--body)}
@@ -230,7 +232,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
     </div>
     <div class="panel">
       <div class="panel-head"><h2>Report Requests</h2><span class="muted small" id="cmp-note"></span></div>
-      <p class="small muted">Same lines as the Report Requests tab. Daily: 10 minutes after each shift. Weekly: last week, ready by Monday 5:00 AM. Monthly: last month, ready on the 1st.</p>
+      <p class="small muted">Same lines as the Report Requests tab. ↓ = team total here, each person in the per-agent table below. Daily: 10 minutes after each shift. Weekly: last week, ready by Monday 5:00 AM. Monthly: last month, ready on the 1st.</p>
       <div class="metrics" id="metrics"></div>
     </div>
     <div class="panel">
@@ -549,9 +551,9 @@ function renderReports(){
   const per="see per-agent table";
   const groups=[
     ["Calls",[["Total Inbound Calls – T1",m("t1In")],["Total Outbound Calls – T1",m("t1Out")],["Total Inbound Calls – TA",m("taIn")],["Total Outbound Calls – TA",m("taOut")],["Missed Call Rate (MCR) – T1",fx(avg("t1Mcr"),1,"%")],["Missed Call Rate (MCR) – TA (6:00 AM–2:00 PM)",fx(avg("taMcr"),1,"%")]]],
-    ["Tickets",[["Opening Number of Tickets",firstOf("ticketsOpening")??"n/a"],["Number of Aged Tickets",lastOf("ticketsAged")??"n/a"],["Tickets Closed per Agent",C+" total, "+per],["Average Ticket Turnaround Time (TAT)",fx(avg("ticketTatH"),1," h")],["Average Time to Close Tickets",fx(avg("ticketCloseH")!=null?avg("ticketCloseH")/24:null,1," days")]]],
-    ["Chats",[["Total Closed Chats",m("chatsClosed")],["First Contact Resolution (FCR)",fx(avg("fcr"),0,"%")],["Chat Response Time (CRT)",avg("crtSec")==null?"n/a":Math.floor(avg("crtSec")/60)+"m "+Math.round(avg("crtSec")%60)+"s"],["Closed Chats per Agent",S(agentRows,"chatsClosed")+" total, "+per]]],
-    ["Task",[["Opening task – T1",firstOf("t1TasksOpening")??"n/a"],["Closed task – T1 (per agent)",S(agentRows,"t1TasksClosed")+" total, "+per],["Opening task – T2",firstOf("t2TasksOpening")??"n/a"],["Closed task – T2",m("t2TasksClosed")],["360 task",lastOf("t360")??(live.q360?live.q360.total+" unassigned now (live)":"loading")],["Average TAT – T1",fx(avg("t1TatD"),1," days")],["Average TAT – T2",fx(avg("t2TatD"),1," days")],["CS Pending Enquiry Task",lastOf("pendingEnquiry")??"n/a"],["Remaining task",lastOf("tasksRemaining")??"n/a"]]]
+    ["Tickets",[["Opening Number of Tickets",firstOf("ticketsOpening")??"n/a"],["Number of Aged Tickets",lastOf("ticketsAged")??"n/a"],["Tickets Closed per Agent ↓",C],["Average Ticket Turnaround Time (TAT)",fx(avg("ticketTatH"),1," h")],["Average Time to Close Tickets",fx(avg("ticketCloseH")!=null?avg("ticketCloseH")/24:null,1," days")]]],
+    ["Chats",[["Total Closed Chats",m("chatsClosed")],["First Contact Resolution (FCR)",fx(avg("fcr"),0,"%")],["Chat Response Time (CRT)",avg("crtSec")==null?"n/a":Math.floor(avg("crtSec")/60)+"m "+Math.round(avg("crtSec")%60)+"s"],["Closed Chats per Agent ↓",S(agentRows,"chatsClosed")]]],
+    ["Task",[["Opening task – T1",firstOf("t1TasksOpening")??"n/a"],["Closed task – T1 (per agent) ↓",S(agentRows,"t1TasksClosed")],["Opening task – T2",firstOf("t2TasksOpening")??"n/a"],["Closed task – T2",m("t2TasksClosed")],["360 task",lastOf("t360")??(live.q360?live.q360.total+" unassigned now (live)":"loading")],["Average TAT – T1",fx(avg("t1TatD"),1," days")],["Average TAT – T2",fx(avg("t2TatD"),1," days")],["CS Pending Enquiry Task",lastOf("pendingEnquiry")??"n/a"],["Remaining task",lastOf("tasksRemaining")??"n/a"]]]
   ];
   $("metrics").innerHTML=groups.map(g=>`<div class="mgroup"><h3>${g[0]}</h3>${g[1].map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join("")}</div>`).join("");
 
@@ -564,7 +566,7 @@ function renderReports(){
     (list.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.shift}</td><td>${a.store}</td><td class="r">${a.d}</td><td class="r">${a.target}</td><td class="r">${a.pendingStart}</td><td class="r">${a.assigned}</td><td class="r">${a.actioned}</td><td class="r">${a.closed}</td><td class="r">${a.remaining}</td><td>${pill(a.target?Math.round(100*a.closed/a.target):0)}</td><td class="r">${a.t1TasksClosed}</td><td class="r">${a.chatsClosed}</td></tr>`).join("")||`<tr><td colspan="13" class="muted">No one matches these filters.</td></tr>`)+"</tbody>";
   // chart 3: assigned / actioned / closed over time
   const A3={};agentRows.forEach(a=>{const k=bucketOf(a.date);(A3[k]=A3[k]||{as:0,ac:0,cl:0});A3[k].as+=+a.assigned||0;A3[k].ac+=+a.actioned||0;A3[k].cl+=+a.closed||0});
-  $("chart3").innerHTML=lineChart(Object.keys(A3).sort(),[{vals:k=>A3[k].as,stroke:"var(--muted)"},{vals:k=>A3[k].ac,stroke:"var(--warn)"},{vals:k=>A3[k].cl,stroke:"var(--accent)",fill:true}],"");
+  $("chart3").innerHTML=lineChart(Object.keys(A3).sort(),[{vals:k=>A3[k].cl,stroke:"var(--accent)",fill:true},{vals:k=>A3[k].as,stroke:"var(--muted)"},{vals:k=>A3[k].ac,stroke:"var(--warn)"}],"",true);
   // B: day by day
   const D={};agentRows.forEach(a=>{const o=D[a.date]=D[a.date]||{date:a.date,target:0,pendingStart:0,assigned:0,actioned:0,closed:0,remaining:0,n:0};o.n++;["target","pendingStart","assigned","actioned","closed","remaining"].forEach(k=>o[k]+=+a[k]||0)});
   const days=Object.values(D).sort((x,y)=>y.date.localeCompare(x.date));
@@ -572,7 +574,6 @@ function renderReports(){
   $("bdaily").innerHTML=`<thead><tr><th>Date</th><th class="r">Daily ticket target</th><th class="r">Existing pending tickets</th><th class="r">Tickets assigned</th><th class="r">Tickets actioned</th><th class="r">Tickets closed</th><th class="r">Remaining pending tickets</th><th>Target achievement</th></tr></thead><tbody>`+
     (days.map(d=>{const pp=d.target?Math.round(100*d.closed/d.target):0;const dd=new Date(d.date+"T00:00:00Z");return `<tr><td>${dd.toUTCString().slice(0,11)}</td><td class="r">${d.target}</td><td class="r">${d.pendingStart}</td><td class="r">${d.assigned}</td><td class="r">${d.actioned}</td><td class="r">${d.closed}</td><td class="r">${d.remaining}</td><td>${pill(pp)}</td></tr>`}).join("")||`<tr><td colspan="8" class="muted">Nothing in this range.</td></tr>`)+"</tbody>";
   renderTasks();
-    (Object.values(tb).map(a=>`<tr><td>${esc(a.name)}</td><td>${a.t==="Cruise"?"Cruise queue":"Target "+a.t+" a day"}</td><td class="r">${a.as}</td><td class="r">${a.dn}</td><td class="r">${a.op}</td><td class="r">${a.ov?`<span class="pill bad">${a.ov}</span>`:"0"}</td><td class="r">${a.age} business days</td></tr>`).join("")||`<tr><td colspan="7" class="muted">No task owners match these filters.</td></tr>`)+"</tbody>";
 }
 function renderTasks(){
   const el=$("tasks");if(!el)return;
@@ -601,8 +602,8 @@ function renderTasks(){
       return `<tr><td>${esc(nameOf[p.hubspot_owner_id]||"")}</td><td style="white-space:normal;min-width:220px">${esc(p.hs_task_subject||"(no subject)")}</td><td>${st}</td><td class="r">${daysAgo(p.hs_createdate)} days</td><td>${fd(p.hubspot_owner_assigneddate)}</td><td>${fd(p.hs_timestamp)}</td><td>${isOpen(r)?"":fd(p.hs_task_completion_date)}</td></tr>`}).join("")+"</tbody>";
   $("task-live").textContent=live.at?"Live · "+fmtTime(live.at):"";
 }
-function lineChart(keys,series,unit){
-  const W=540,H=210,pl=40,pb=26,pt=10,pr=12;
+function lineChart(keys,series,unit,wide){
+  const W=wide?1080:540,H=210,pl=40,pb=26,pt=10,pr=12;
   if(!keys.length)return`<p class="muted small">Nothing in this range.</p>`;
   const max=Math.max(1,...keys.flatMap(k=>series.map(s=>s.vals(k))));
   const step=Math.pow(10,Math.floor(Math.log10(max)));const nice=Math.ceil(max/step)*step;
