@@ -240,7 +240,8 @@ svg text{fill:var(--muted);font:11px var(--body)}
         <h2>What updates when</h2>
         <div class="timeline">
           <div class="trow"><span class="t">Every 3 min</span><span><span class="pill ok">Live</span> Open tickets, closed today, unassigned queues, straight from HubSpot while this page is open</span></div>
-          <div class="trow"><span class="t">06:30</span><span><span class="pill acc">Set-up</span> Morning shift top-up</span></div>
+          <div class="trow"><span class="t">Before</span><span><span class="pill bad">Check</span> Every top-up checks two things: the sheet says IN, and the agent has logged a call, email or note since their shift started. Anyone on the sheet but not seen gets nothing and is flagged, then re-checked 2 hours into the shift.</span></div>
+          <div class="trow"><span class="t">06:30</span><span><span class="pill acc">Set-up</span> Morning shift top-up (catch-up 08:00)</span></div>
           <div class="trow"><span class="t">10:30</span><span><span class="pill acc">Set-up</span> Swing shift top-up</span></div>
           <div class="trow"><span class="t">14:30</span><span><span class="pill acc">Set-up</span> Mid shift top-up</span></div>
           <div class="trow"><span class="t">22:30</span><span><span class="pill acc">Set-up</span> Night shift top-up (US/CA)</span></div>
@@ -295,7 +296,30 @@ let TEAM=[
 let TODAY=null; // {date, in:[ids]} from the store
 
 /* ---------- Live state ---------- */
-const live={open:null,closed:null,unTickets:null,qAll:null,qCb:null,qCruise:null,tasks:null,at:null};
+const live={open:null,closed:null,unTickets:null,qAll:null,qCb:null,qCruise:null,tasks:null,calls:null,emails:null,notes:null,at:null};
+
+/* Signs of work: a call, email or note the agent logged since their shift started. */
+const SHIFT_HOUR={Morning:6,Swing:10,Mid:14,Night:22};
+function shiftStartMs(a){
+  const h=SHIFT_HOUR[a.shift]; if(h==null) return null;
+  const day0=Date.parse(todayISO()+"T00:00:00Z")-MNL; // today 00:00 Manila, in UTC ms
+  let start=day0+h*3600e3;
+  if(a.shift==="Night"&&mnlNow().getUTCHours()<6) start-=864e5; // night shift that began yesterday
+  return start;
+}
+function activityStart(){return Date.parse(todayISO()+"T00:00:00Z")-MNL-2*3600e3} // yesterday 22:00 Manila
+function seenSince(a){
+  if(!live.calls||!live.emails||!live.notes) return null;
+  const start=shiftStartMs(a);
+  return [live.calls,live.emails,live.notes].some(list=>list.some(r=>{const p=r.properties||{};return p.hubspot_owner_id===a.id&&Date.parse(p.hs_createdate||p.hs_timestamp||0)>=start}));
+}
+function presence(a){
+  const inn=isIn(a);if(inn===false) return "off";
+  const start=shiftStartMs(a);if(start==null) return "unknown";
+  if(Date.now()<start) return "later";
+  if(Date.now()<start+30*60e3) return "starting";
+  const s=seenSince(a);return s==null?"unknown":s?"seen":"notseen";
+}
 
 function currentShift(){const h=mnlNow().getUTCHours();if(h>=22||h<6)return"Night";if(h>=14)return"Mid";if(h>=10)return"Swing";return"Morning"}
 function isIn(a){return TODAY&&TODAY.date===todayISO()&&Array.isArray(TODAY.in)?TODAY.in.includes(a.id):null}
@@ -330,7 +354,9 @@ function renderLive(){
     `<div class="stat"><span class="label">Open with agents</span><span class="val">${dash(open)}</span><span class="sub">tickets held right now</span></div>`,
     `<div class="stat${un&&un.length>15?" alert":""}"><span class="label">Unassigned tickets</span><span class="val">${un?un.length:"…"}</span><span class="sub">${un?(un.length?"oldest "+oldest+" days":"queue is clear"):"loading"}</span></div>`,
     `<div class="stat${urgent?" alert":""}"><span class="label">Urgent unassigned</span><span class="val">${dash(urgent)}</span><span class="sub">on tour or marked urgent</span></div>`,
-    `<div class="stat"><span class="label">Open T1 tasks</span><span class="val">${live.tasks?live.tasks.length:"…"}</span><span class="sub">${live.tasks?Object.values(overdueBy).reduce((a,b)=>a+b,0)+" past due":"held by agents"}</span></div>`
+    `<div class="stat"><span class="label">Open T1 tasks</span><span class="val">${live.tasks?live.tasks.length:"…"}</span><span class="sub">${live.tasks?Object.values(overdueBy).reduce((a,b)=>a+b,0)+" past due":"held by agents"}</span></div>`,
+    (()=>{const ns=TEAM.filter(a=>presence(a)==="notseen");const loading=TEAM.some(a=>presence(a)==="unknown");
+      return `<div class="stat${ns.length?" alert":""}"><span class="label">On sheet, not seen yet</span><span class="val">${loading&&!ns.length?"…":ns.length}</span><span class="sub">${ns.length?esc(ns.map(a=>a.name).join(", "))+": no calls, emails or notes since shift start":"everyone rostered is working"}</span></div>`})()
   ].join("");
 
   const q=(name,obj,desc)=>`<div class="q"><span>${name}</span><span class="n">${obj?obj.total:"…"}</span><span class="d">${desc(obj)}</span></div>`;
@@ -346,8 +372,11 @@ function renderLive(){
     return `<div class="shiftgroup"><h3>${s.key} <span class="muted small">${s.label}${s.key===cur?" · on now":""}</span></h3><div class="cards">`+
     people.map(a=>{
       const inn=isIn(a);const c=closedBy?(closedBy[a.id]||0):null;const o=openBy?(openBy[a.id]||0):null;const t=+a.ticketTarget||0;
-      const p=c!=null&&t?Math.round(100*c/t):0;
-      const state=inn===false?`<span class="pill waitp">Off</span>`:c==null?`<span class="pill acc">…</span>`:p>=100?`<span class="pill ok">At target</span>`:`<span class="pill ${p>=60?"warn":"bad"}">${p}%</span>`;
+      const p=c!=null&&t?Math.round(100*c/t):0;const pr=presence(a);
+      const state=pr==="off"?`<span class="pill waitp">Off</span>`
+        :pr==="notseen"?`<span class="pill bad" title="On the sheet as IN, but no calls, emails or notes since the shift started">Not seen yet</span>`
+        :pr==="later"?`<span class="pill waitp">Starts ${String(SHIFT_HOUR[a.shift]).padStart(2,"0")}:00</span>`
+        :c==null?`<span class="pill acc">…</span>`:p>=100?`<span class="pill ok">At target</span>`:`<span class="pill ${p>=60?"warn":"bad"}">${p}%</span>`;
       const tk=a.taskTarget?`<span><b>${tasksBy?(tasksBy[a.id]||0):"…"}</b>tasks${overdueBy[a.id]?`, <span style="color:var(--bad)">${overdueBy[a.id]} late</span>`:""}</span>`:"";
       return `<div class="card${inn===false?" offduty":""}"><div class="row"><span class="name">${esc(a.name)}</span>${state}</div>
         <div class="bar${p>=100?" ok":""}"><i style="width:${Math.min(100,p)}%"></i></div>
@@ -407,6 +436,9 @@ function startLive(){
   const taskIds=TEAM.filter(a=>a.taskTarget).map(a=>a.id);
   watchSearch("tasks",{objectType:"TASK",limit:200,properties:["hubspot_owner_id","hs_timestamp"],chatInsights:insights,
     filterGroups:[{filters:[{propertyName:"hs_task_status",operator:"IN",values:OPEN_STATUSES},{propertyName:"hubspot_owner_id",operator:"IN",values:taskIds}]}]},true);
+  const actFrom=new Date(activityStart()).toISOString();
+  ["CALL","EMAIL","NOTE"].forEach(t=>watchSearch(t==="CALL"?"calls":t==="EMAIL"?"emails":"notes",{objectType:t,limit:200,properties:["hubspot_owner_id","hs_createdate"],chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_createdate",operator:"GTE",value:actFrom},{propertyName:"hubspot_owner_id",operator:"IN",values:ids}]}]},true));
 }
 $("hs-allow").addEventListener("click",async()=>{
   try{await mcp.callTool(HS,TOOL,{objectType:"TASK",limit:1,properties:["hs_createdate"],chatInsights:insights,filterGroups:[{filters:[{propertyName:"hs_queue_membership_ids",operator:"CONTAINS_TOKEN",value:"4046613"}]}]});hsNotice("",false);startLive();}
@@ -546,7 +578,7 @@ window.addEventListener("hashchange",()=>{const n=location.hash.slice(1);if(TABS
 
 /* ---------- Boot ---------- */
 fillAgents();setDefaultRange();renderClock();renderLive();renderLog();renderReports();
-setInterval(renderClock,30000);
+setInterval(()=>{renderClock();renderLive()},60000);
 
 (async()=>{
   const c=window.claude;

@@ -20,6 +20,12 @@ Edit the playbooks through the broker (`revise_iv_playbook`), not here.
   queues, open and overdue tasks.
 - **30 minutes after each shift starts** (06:30, 10:30, 14:30, 22:30
   Manila): the shift top-up runs and its summary appears on the board.
+- **Sick-call check before every top-up**: an agent must be IN on the
+  Attendance tab AND have logged a call, email or note (or finished a
+  task / closed a ticket) in HubSpot since their shift started. Anyone on
+  the sheet but not seen gets nothing, is flagged on the board, and is
+  re-checked by a catch-up run 2 hours into the shift (08:00, 12:00,
+  16:00, 00:00).
 - **10 minutes after each shift ends**: the shift wrap (calls, tickets,
   chats, tasks, per-agent productivity) appears on the board. Weekly and
   monthly views build from these.
