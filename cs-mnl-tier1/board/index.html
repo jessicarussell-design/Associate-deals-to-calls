@@ -666,27 +666,31 @@ function renderLibrary(){
   const add=(iso,n)=>new Date(Date.parse(iso+"T00:00:00Z")+n*864e5).toISOString().slice(0,10);
   const t=todayISO();
   const SH={Morning:"14:10",Swing:"18:10",Mid:"22:10",Night:"06:10"};
-  const SO={Morning:0,Swing:1,Mid:2,Night:3};const wraps=rows.slice().sort((x,y)=>y.date.localeCompare(x.date)||SO[y.shift]-SO[x.shift]).slice(0,8).map(r=>({period:"day",from:r.date,to:r.date,shift:r.shift,
+  const SO={Morning:0,Swing:1,Mid:2,Night:3};const wraps=rows.slice().sort((x,y)=>y.date.localeCompare(x.date)||SO[y.shift]-SO[x.shift]).slice(0,28).map(r=>({period:"day",from:r.date,to:r.date,shift:r.shift,
     title:`${r.shift} shift · ${fmt(r.date)}`,sub:`ready ${SH[r.shift]||""}${r.shift==="Night"?" next day":""}`,ready:true}));
-  const thisMon=weekKey(t);const weeks=[];for(let i=1;i<=6;i++){const from=add(thisMon,-7*i),to=add(from,6);
+  const thisMon=weekKey(t);const weeks=[];for(let i=1;i<=12;i++){const from=add(thisMon,-7*i),to=add(from,6);
     weeks.push({period:"week",from,to,shift:"",title:`Week of ${fmt(from).slice(5)}`,sub:`${fmt(from).slice(5)} to ${fmt(to).slice(5)} · ready Mon ${fmt(add(to,1)).slice(5)} 5:00 AM`,ready:true})}
-  const months=[];const m0=new Date(t.slice(0,7)+"-01T00:00:00Z");for(let i=1;i<=3;i++){const d=new Date(Date.UTC(m0.getUTCFullYear(),m0.getUTCMonth()-i,1));const from=d.toISOString().slice(0,10);
+  const months=[];const m0=new Date(t.slice(0,7)+"-01T00:00:00Z");for(let i=1;i<=12;i++){const d=new Date(Date.UTC(m0.getUTCFullYear(),m0.getUTCMonth()-i,1));const from=d.toISOString().slice(0,10);
     const to=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);
     months.push({period:"month",from,to,shift:"",title:d.toUTCString().slice(8,16),sub:`ready 1 ${new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)).toUTCString().slice(8,11)} 5:00 AM`,ready:true})}
   const nextWeek={title:"This week",sub:`ready Mon ${fmt(add(thisMon,7)).slice(5)} 5:00 AM`,ready:false};
   const nextMonth={title:new Date(t.slice(0,7)+"-01T00:00:00Z").toUTCString().slice(8,16),sub:"ready on the 1st, 5:00 AM",ready:false};
   const btn=(r,i,g)=>r.ready?`<button type="button" class="rep" data-g="${g}" data-i="${i}" aria-current="${LIBSEL===g+i}"><span>${esc(r.title)}<small>${esc(r.sub)}</small></span><span class="pill ok">Ready</span></button>`
     :`<div class="rep" style="cursor:default"><span>${esc(r.title)}<small>${esc(r.sub)}</small></span><span class="pill waitp">Building</span></div>`;
-  const col=(h,note,list,g,pending)=>`<div class="libcol"><h3>${h}<span>${note}</span></h3>${pending?btn(pending,0,"x"):""}${list.map((r,i)=>btn(r,i,g)).join("")}</div>`;
+  const SHOWN={d:4,w:1,m:1};
+  const col=(h,note,list,g,pending)=>{const n=LIBOPEN[g]?list.length:SHOWN[g];const extra=list.length-SHOWN[g];
+    return `<div class="libcol"><h3>${h}<span>${note}</span></h3>${pending?btn(pending,0,"x"):""}${list.slice(0,n).map((r,i)=>btn(r,i,g)).join("")}`+
+    (extra>0?`<button type="button" class="more" data-arch="${g}" aria-expanded="${!!LIBOPEN[g]}">${LIBOPEN[g]?"Hide archive":"Archive ("+extra+" older)"}</button>`:"")+`</div>`};
   $("library").innerHTML=(usingSample.rep?`<p class="small muted" style="grid-column:1/-1"><span class="sample">Example</span> These fill with real reports once the end-of-shift runs start.</p>`:"")+
     col("End of shift","10 min after each shift",wraps,"d")+col("Weekly","last week, Mon 5:00 AM",weeks,"w",nextWeek)+col("Monthly","last month, on the 1st",months,"m",nextMonth);
   const groups={d:wraps,w:weeks,m:months};
+  $("library").querySelectorAll("button[data-arch]").forEach(b=>b.addEventListener("click",()=>{LIBOPEN[b.dataset.arch]=!LIBOPEN[b.dataset.arch];renderLibrary()}));
   $("library").querySelectorAll("button.rep").forEach(b=>b.addEventListener("click",()=>{const r=groups[b.dataset.g][+b.dataset.i];LIBSEL=b.dataset.g+b.dataset.i;
     PERIOD=r.period;document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.period===PERIOD));
     $("f-from").value=r.from;$("f-to").value=r.to;$("f-shift").value=r.shift;renderReports();
     $("rep-filters").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})}));
 }
-let LIBSEL="";
+let LIBSEL="";const LIBOPEN={};
 function setDefaultRange(){
   const t=Date.parse(todayISO()+"T00:00:00Z");const back=PERIOD==="day"?7:PERIOD==="week"?28:90;
   $("f-to").value=new Date(t-864e5).toISOString().slice(0,10);$("f-from").value=new Date(t-back*864e5).toISOString().slice(0,10);
