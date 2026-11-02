@@ -36,6 +36,8 @@ p{margin:0}
 
 header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;justify-content:space-between}
 .title{display:grid;gap:4px}
+.refresh-line{margin:2px 0 0;font:600 .9rem var(--display);color:var(--ink);display:flex;flex-wrap:wrap;gap:4px 14px}
+.refresh-line span{color:var(--muted);font-weight:500}
 .status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .chip{display:inline-flex;align-items:center;gap:6px;font:600 .78rem var(--display);padding:5px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
@@ -177,6 +179,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
     <div class="title">
       <h1>Manila Tier 1 Customer Success Board and Reporting</h1>
       <p class="muted small" id="clock">Manila time</p>
+      <p class="refresh-line" id="refresh-line" hidden></p>
     </div>
     <div class="status">
       <span class="chip" id="hs-chip"><span class="dot"></span><span id="hs-text">Connecting to HubSpot</span></span>
@@ -712,7 +715,14 @@ fillAgents();setDefaultRange();renderClock();renderLive();renderLog();renderRepo
 setInterval(()=>{renderClock();renderLive()},60000);
 if(SNAP){
   const age=SNAP.generatedAt?Math.round((Date.now()-SNAP.generatedAt)/60000):null;
-  setHsChip(age!=null&&age>300?"stale":"live","Updated "+(SNAP.generatedAt?fmtTime(SNAP.generatedAt)+" Manila":"")+" · refreshes every 4 hours");
+  setHsChip(age!=null&&age>300?"stale":"live","Last refreshed "+(SNAP.generatedAt?fmtTime(SNAP.generatedAt)+" Manila":""));
+  if(SNAP.generatedAt){
+    const g=new Date(SNAP.generatedAt+MNL);const day=g.toUTCString().slice(0,11);
+    const slots=[2,6,10,14,18,22];const gh=g.getUTCHours()+g.getUTCMinutes()/60;
+    const nxt=slots.find(h=>h+10/60>gh+0.01);const nextTxt=nxt==null?"02:10 tomorrow":String(nxt).padStart(2,"0")+":10";
+    const rl=$("refresh-line");rl.hidden=false;
+    rl.innerHTML=`Last refreshed ${fmtTime(SNAP.generatedAt)} Manila, ${day}<span>Refreshes every 4 hours · next update about ${nextTxt} Manila</span>`;
+  }
   $("db-chip").hidden=true;
   if(age!=null&&age>300) hsNotice("This copy hasn't refreshed for "+Math.round(age/60)+" hours. The hourly update may have stopped.",false);
 }
