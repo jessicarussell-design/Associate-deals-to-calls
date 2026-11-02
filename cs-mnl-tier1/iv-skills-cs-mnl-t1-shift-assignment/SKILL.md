@@ -1,6 +1,6 @@
 ---
 name: iv-skills-cs-mnl-t1-shift-assignment
-description: Unattended run 30 minutes after each MNL Tier 1 shift starts (06:30, 10:30, 14:30, 22:30 Manila). Reads the live Tier 1 Attendance and Tier 1 Goal tabs of the CS Roster sheet, tops each working agent up to their daily ticket target (target minus tickets they already hold, oldest unassigned first, routed by store NZ/AU or US/CA), assigns tasks to the agents designated for them that day (with a fallback when they are out), logs every assignment to the Assignment Log tab, then runs iv-skills-cs-mnl-t1-daily-signal. Posts one short summary to the Tier 1 leads. Trigger on "run the T1 shift assignment", "assign Tier 1 tickets", "top up the T1 ticket targets".
+description: Unattended run 30 minutes after each MNL Tier 1 shift starts (06:30, 10:30, 14:30, 22:30 Manila). Reads the live Tier 1 Attendance and Tier 1 Goal tabs of the CS Roster sheet, tops each working agent up to their daily ticket target (target minus tickets they already hold, oldest unassigned first, routed by store NZ/AU or US/CA), assigns tasks to the agents designated for them that day (with a fallback when they are out), logs every assignment to the Assignment Log tab, then runs iv-skills-cs-mnl-t1-daily-signal. Writes a shift summary to the live Tier 1 Ops Board (no Slack). Trigger on "run the T1 shift assignment", "assign Tier 1 tickets", "top up the T1 ticket targets".
 category: Customer Success
 submitted_by: jessica.russell@inspiringvacations.com
 ---
@@ -165,8 +165,9 @@ a person asks for it; then only top up the gap that remains.
 
 For each working agent in this shift with a ticket target:
 
-    pending = open tickets owned by the agent in pipeline 0
-              (same exclusions as above)
+    pending = open tickets owned by the agent in pipeline 0,
+              excluding Automated Response only (an owned
+              complaint is still their load)
     to_assign = max(0, target - pending)
 
 Waiting on customer and Waiting on Internal count as pending. They are
@@ -318,32 +319,41 @@ It runs last so the running order covers today's new work.
 
 ---
 
-## STEP 5: the post
+## STEP 5: write to the Tier 1 Ops Board (no Slack)
 
-**Destination: Slack conversation `C0C1YK6BVDH` (AI CS space)** until
-Jess names a dedicated Tier 1 channel. One post per run. No DMs.
+**No Slack, no DMs** (Jess, 2 Nov 2026). The only output is the live
+board, https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd, written with the `ArtifactData` tool as ONE `batch`.
+The board shows each write the moment it lands.
 
-Plain words. No IDs, no rule names, no "round robin", "FIFO", "gap".
+| Doc | Op | Content |
+|---|---|---|
+| `config/today` | set (pin `if_version` if it exists) | `{date: "YYYY-MM-DD", in: [owner IDs of everyone IN today, all shifts], updatedAt}` from today's Attendance column |
+| `shifts/{YYYY-MM-DD}_{morning\|swing\|mid\|night}` | set | see below |
+| `config/team` | update, pinned | only when the Goal tab changed: rewrite `agents` as `[{id, name, shift, store, ticketTarget, taskTarget}]` |
 
-    Morning shift is set up. (Preview, nothing assigned yet.)
+The `shifts` document:
 
-    *Tickets*
-    - *Ella*: had 2, got 3, now at target of 5.
-    - *Kyle*: had 5, already at target, nothing new.
-    - *Kate*: had 1, got 2, now 3 of 5 (ran out of tickets).
+    {
+      date: "2026-11-02", shift: "Morning", mode: "PREVIEW" | "LIVE",
+      runAt: <epoch ms>,
+      agents: [{name, ticketTarget, ticketsHad, ticketsGot,
+                taskTarget, tasksHad, tasksGot, note}],
+      flags: ["Kesha is on leave, so Jastine has all the cruise tasks today."]
+    }
 
-    *Tasks*
-    - *Ella*: had 12, got 8, now at target of 20.
-    - *Jastine*: 4 cruise tasks.
+`name` is the first name. `taskTarget` is the number, `"Cruise"`, or
+null. `note` is short and optional ("ran out of tickets"). Only agents
+in this shift who are IN today.
 
-    *Worth a look*
-    - Kesha is on leave, so Jastine has all the cruise tasks today.
-    - 14 tickets are still waiting, oldest open 9 days.
-    - 3 tickets I couldn't place by store.
+**Flags** are plain sentences a TL can act on, four at most, in this
+order: urgent work nobody could take, more work than capacity (how
+many left, oldest age), duplicates held back (booking number), tickets
+that couldn't be placed by store, the attendance sheet not covering
+today, someone not set up in the assignment, writes that failed. No
+IDs, no rule names. Empty list when nothing to flag.
 
-Only list agents in this shift who are in today. Skip a section that is
-empty. Four "Worth a look" items maximum. If nothing to flag, end with
-"Nothing else to flag."
+If the board write fails, retry once, then end the run with the failure
+in its final message. Never fall back to Slack.
 
 ---
 
@@ -360,3 +370,5 @@ empty. Four "Worth a look" items maximum. If nothing to flag, end with
 
 - 2 Nov 2026: created from the "Automation and Rule" tab of the CS
   Roster sheet (Jess). Starts in PREVIEW.
+- 2 Nov 2026 (Jess): no Slack. Output goes to the live Tier 1 Ops
+  Board. Pending tickets exclude only Automated Response.

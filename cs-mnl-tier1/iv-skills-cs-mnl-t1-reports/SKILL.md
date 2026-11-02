@@ -1,6 +1,6 @@
 ---
 name: iv-skills-cs-mnl-t1-reports
-description: MNL Tier 1 reporting. Daily (10 minutes after each shift ends), weekly (Monday 05:00 Manila, last week) and monthly (1st of the month, last month) reports covering calls (T1 and TA inbound, outbound, missed call rate), tickets (opening, aged, closed per agent, turnaround, time to close), chats (closed, first contact resolution, response time, per agent) and tasks (opening and closed T1 and T2, 360, average turnaround, CS Pending Enquiry, remaining). Also builds the Team Lead productivity view (target, pending, assigned, actioned, closed, remaining, achievement %) and task monitoring view, with history in the CS Roster sheet so TLs can filter by date, agent, team and store. Trigger on "run the T1 daily report", "T1 weekly report", "T1 monthly report", "Tier 1 productivity".
+description: MNL Tier 1 reporting. Daily (10 minutes after each shift ends), weekly (Monday 05:00 Manila, last week) and monthly (1st of the month, last month) reports covering calls (T1 and TA inbound, outbound, missed call rate), tickets (opening, aged, closed per agent, turnaround, time to close), chats (closed, first contact resolution, response time, per agent) and tasks (opening and closed T1 and T2, 360, average turnaround, CS Pending Enquiry, remaining). Also builds the Team Lead productivity view (target, pending, assigned, actioned, closed, remaining, achievement %) and task monitoring view, all written to the live Tier 1 Ops Board, which TLs filter by date, shift, store and agent. Trigger on "run the T1 daily report", "T1 weekly report", "T1 monthly report", "Tier 1 productivity".
 category: Customer Success
 submitted_by: jessica.russell@inspiringvacations.com
 ---
@@ -145,50 +145,45 @@ assigned date and age.
 
 ---
 
-## Where it goes
+## Where it goes: the Tier 1 Ops Board only
 
-### 1. History tabs in the CS Roster sheet (the filterable report)
+**No Slack, no iv-insights, no sheet tabs** (Jess, 2 Nov 2026). Every
+daily run writes ONE document to the live board,
+https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd, with `ArtifactData`. The board updates the moment it lands
+and works out weekly and monthly views, filters (date, shift, store,
+agent) and "vs previous period" itself.
 
-Append, never overwrite. Create on first run if missing.
+Doc: `daily/{YYYY-MM-DD}_{morning|swing|mid|night}` (set; pin
+`if_version` when re-running a shift, so a re-run replaces rather than
+doubles).
 
-- `T1 Daily Productivity`: Date, Shift, Store, Team, Agent, then every
-  column of the TL productivity view and task monitoring view.
-- `T1 Daily Metrics`: Date, Window, Shift, then one column per metric
-  in the Calls, Tickets, Chats and Tasks sections.
+    {
+      date: "2026-11-02", shift: "Morning", runAt: <epoch ms>,
+      metrics: {
+        t1In, t1Out, t1Mcr,            // calls; MCR as a percent, 1 dp
+        taIn, taOut, taMcr,            // TA; taMcr null outside 06:00-14:00
+        ticketsOpening, ticketsAged,   // counts
+        ticketTatH, ticketCloseH,      // hours, 1 dp
+        chatsClosed, fcr, crtSec,      // fcr percent, crtSec seconds
+        t1TasksOpening, t1TasksClosed, t2TasksOpening, t2TasksClosed,
+        t1TatD, t2TatD,                // business days, 1 dp
+        pendingEnquiry, t360, tasksRemaining
+      },
+      agents: [{id, name, store, target, pendingStart, assigned,
+                actioned, closed, remaining, taskTarget, tasksAssigned,
+                tasksDone, tasksOpen, tasksOverdue, oldestTaskDays}]
+    }
 
-TLs filter by date, agent, team (shift) and store with the sheet's
-filter views, and pick any date range. That is the "custom date range"
-and "historical comparison" in the request, with no extra tool.
+A metric whose source failed is `null`, never 0; the board shows
+"n/a". Only agents who were IN for that shift go in `agents`.
 
-Re-running a day replaces that day's rows for that shift (delete, then
-append), so a re-run never double counts.
+**Weekly (Mon 05:00) and monthly (1st 05:00) runs** do not write a
+separate report. They check that every shift in the period has a
+`daily` doc, backfill any that are missing, and finish. The board
+builds the weekly and monthly views from the daily docs.
 
-### 2. Live dashboard (the only place reports are shown)
-
-**No Slack posts.** Reports never post to the AI CS space or anywhere
-else (Jess, 2 Nov 2026). Every run, daily, weekly and monthly, refreshes
-ONE live dashboard and that is the whole output.
-
-Publish it once via iv-insights (`upload_report`), then `update_report`
-on every run so the URL never changes. Layout follows the approved
-preview (https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd):
-
-- **Filters** across the top: date range, shift, store, agent.
-- **Headline tiles**: target achieved %, assigned, actioned, closed,
-  still pending, pending at start.
-- **Tickets closed vs target per day** chart.
-- **Calls, chats and tasks** list (every Report Requests metric).
-- **Ticket productivity by agent** table.
-- **Task monitoring** table.
-- **Shift assignment** panel: the latest summary from
-  `iv-skills-cs-mnl-t1-shift-assignment` (read from the Assignment Log).
-- **Weekly / monthly** views: same panels with "vs previous period".
-
-Embed the rows from the two history tabs as the dashboard's data so
-the filters work on the full history. Follow the dataviz skill.
-
-If a source fails, the dashboard still refreshes, with a one-line
-banner naming the source ("Calls not updated this run").
+The board also reads HubSpot live every 3 minutes for open tickets,
+closed today and unassigned queues. That needs no run.
 
 ---
 
@@ -196,5 +191,6 @@ banner naming the source ("Calls not updated this run").
 
 - 2 Nov 2026: created (Jess), from the "Report Requests" and
   "Automation and Rule" tabs.
-- 2 Nov 2026 (Jess): no Slack posts. All reporting lives on one live
-  dashboard, refreshed every run.
+- 2 Nov 2026 (Jess): no Slack posts. All reporting lives on the live
+  Tier 1 Ops Board (daily docs in its store); weekly and monthly runs
+  only backfill.
