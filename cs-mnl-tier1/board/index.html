@@ -131,6 +131,32 @@ svg text{fill:var(--muted);font:11px var(--body)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.84rem;color:var(--muted)}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
 
+/* Report library */
+.lib{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px}
+.libcol{display:grid;gap:6px;align-content:start}
+.libcol h3{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.libcol h3 span{font:500 .75rem var(--body);color:var(--muted)}
+.rep{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font:inherit;font-size:.9rem;cursor:pointer}
+.rep:hover{border-color:var(--accent)}
+.rep[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.rep small{display:block;color:var(--muted);font-size:.78rem}
+/* Task detail */
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chipbtn{display:inline-flex;gap:6px;align-items:baseline;font:600 .82rem var(--display);padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.chipbtn b{font:800 .95rem var(--display)}
+.chipbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.agentblock{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.agentblock>header{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;justify-content:space-between;padding:10px 14px;background:var(--panel-2);border-bottom:1px solid var(--line)}
+.agentblock>header b{font:700 1rem var(--display)}
+.agentblock>header span{font-size:.84rem;color:var(--muted)}
+.agentblock table{table-layout:fixed;min-width:760px}
+.agentblock table td,.agentblock table th{padding:7px 12px}
+.agentblock col.c-st{width:120px}.agentblock col.c-as{width:110px}.agentblock col.c-du{width:120px}.agentblock col.c-ag{width:90px}.agentblock col.c-co{width:110px}
+.when{display:grid;line-height:1.25}
+.when small{color:var(--muted);font-size:.78rem}
+.late{color:var(--bad);font-weight:600}.soon{color:var(--warn);font-weight:600}
+.more{font:600 .82rem var(--display);color:var(--accent);background:none;border:0;padding:8px 14px;cursor:pointer}
+
 /* Help */
 .timeline{display:grid;gap:6px}
 .trow{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:center;font-size:.9rem}
@@ -193,6 +219,10 @@ svg text{fill:var(--muted);font:11px var(--body)}
   <!-- REPORTS -->
   <section id="reports" class="grid" hidden>
     <div class="panel">
+      <div class="panel-head"><h2>Report library</h2><span class="muted small">Every report lives here. Click one to open it below.</span></div>
+      <div class="lib" id="library"></div>
+    </div>
+    <div class="panel" id="rep-filters">
       <div class="filters">
         <div class="seg" role="group" aria-label="Period">
           <button type="button" data-period="day" aria-pressed="true">Daily</button>
@@ -244,8 +274,9 @@ svg text{fill:var(--muted);font:11px var(--body)}
       <div class="panel-head"><h2>Task Monitoring Report</h2><span class="muted small" id="task-live"></span></div>
       <p class="muted small">Live from HubSpot. Assigned and completed count within the dates picked above; pending and overdue are right now.</p>
       <div class="tablewrap"><table id="tasks"></table></div>
-      <div class="panel-head"><h3>Every task</h3><span class="muted small" id="task-count"></span></div>
-      <div class="tablewrap"><table id="taskdetail"></table></div>
+      <div class="panel-head"><h3>Every task, by agent</h3><span class="muted small" id="task-count"></span></div>
+      <div class="chips" id="taskchips" role="group" aria-label="Show tasks"></div>
+      <div class="grid" id="taskdetail"></div>
     </div>
   </section>
 
@@ -516,6 +547,7 @@ function weekKey(iso){const d=new Date(iso+"T00:00:00Z");const dow=(d.getUTCDay(
 function bucketOf(iso){return PERIOD==="day"?iso:PERIOD==="week"?weekKey(iso):iso.slice(0,7)}
 function bucketLabel(k){if(PERIOD==="month"){const d=new Date(k+"-01T00:00:00Z");return d.toUTCString().slice(8,16)}const d=new Date(k+"T00:00:00Z");return (PERIOD==="week"?"wk ":"")+d.getUTCDate()+" "+d.toUTCString().slice(8,11)}
 function renderReports(){
+  renderLibrary();
   const rows=DAILY.length?DAILY:(SAMPLE_DAILY=SAMPLE_DAILY||sampleDaily());usingSample.rep=!DAILY.length;
   $("rep-source").innerHTML=usingSample.rep?`<span class="sample">Example numbers</span> No shift wraps yet. Real numbers replace these after the first wrap.`:`From ${DAILY.length} shift wraps. Updates as each wrap lands.`;
   const f={from:$("f-from").value,to:$("f-to").value,shift:$("f-shift").value,store:$("f-store").value,agent:$("f-agent").value};
@@ -575,6 +607,7 @@ function renderReports(){
     (days.map(d=>{const pp=d.target?Math.round(100*d.closed/d.target):0;const dd=new Date(d.date+"T00:00:00Z");return `<tr><td>${dd.toUTCString().slice(0,11)}</td><td class="r">${d.target}</td><td class="r">${d.pendingStart}</td><td class="r">${d.assigned}</td><td class="r">${d.actioned}</td><td class="r">${d.closed}</td><td class="r">${d.remaining}</td><td>${pill(pp)}</td></tr>`}).join("")||`<tr><td colspan="8" class="muted">Nothing in this range.</td></tr>`)+"</tbody>";
   renderTasks();
 }
+let TASKVIEW="all";const EXPANDED={};
 function renderTasks(){
   const el=$("tasks");if(!el)return;
   const f={from:$("f-from").value,to:$("f-to").value,shift:$("f-shift").value,store:$("f-store").value,agent:$("f-agent").value};
@@ -586,20 +619,45 @@ function renderTasks(){
   const all=live.openAll.concat(live.doneAll).filter(r=>ids.has((r.properties||{}).hubspot_owner_id));
   const now=Date.now();const P=r=>r.properties||{};
   const isOpen=r=>OPEN_STATUSES.includes(P(r).hs_task_status);
-  const overdue=r=>isOpen(r)&&P(r).hs_timestamp&&Date.parse(P(r).hs_timestamp)<now;
+  const dayOf=ms=>Math.floor((ms+MNL)/864e5);const overdue=r=>isOpen(r)&&!!P(r).hs_timestamp&&dayOf(Date.parse(P(r).hs_timestamp))<dayOf(now);
   const rows=agents.map(a=>{const mine=all.filter(r=>P(r).hubspot_owner_id===a.id);const open=mine.filter(isOpen);
     return{name:a.name,assigned:mine.filter(r=>inR(P(r).hubspot_owner_assigneddate)).length,done:mine.filter(r=>!isOpen(r)&&inR(P(r).hs_task_completion_date)).length,
       pending:open.length,over:open.filter(overdue).length,oldest:open.length?Math.max(...open.map(r=>daysAgo(P(r).hs_createdate))):0}}).filter(x=>x.assigned||x.done||x.pending);
   rows.sort((x,y)=>y.over-x.over||y.pending-x.pending);
   el.innerHTML=`<thead><tr><th>Agent name</th><th class="r">Tasks assigned</th><th class="r">Tasks completed</th><th class="r">Pending</th><th class="r">Overdue</th><th class="r">Oldest pending</th></tr></thead><tbody>`+
     (rows.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${x.assigned}</td><td class="r">${x.done}</td><td class="r">${x.pending}</td><td class="r">${x.over?`<span class="pill bad">${x.over}</span>`:"0"}</td><td class="r">${x.pending?x.oldest+" days":"n/a"}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">No tasks for these filters.</td></tr>`)+"</tbody>";
-  const fd=v=>{if(!v)return"n/a";const d=new Date(Date.parse(v)+MNL);return d.getUTCDate()+" "+d.toUTCString().slice(8,11)+" "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")};
-  const det=all.filter(r=>isOpen(r)||inR(P(r).hs_task_completion_date)).sort((x,y)=>(overdue(y)-overdue(x))||(isOpen(y)-isOpen(x))||(Date.parse(P(x).hs_createdate)-Date.parse(P(y).hs_createdate)));
-  const cap=150;
-  $("task-count").textContent=det.length>cap?"oldest "+cap+" of "+det.length+" shown":det.length+" tasks";
-  $("taskdetail").innerHTML=`<thead><tr><th>Agent</th><th>Task</th><th>Status</th><th class="r">Age</th><th>Assigned</th><th>Due</th><th>Completed</th></tr></thead><tbody>`+
-    det.slice(0,cap).map(r=>{const p=P(r);const st=!isOpen(r)?`<span class="pill ok">Done</span>`:overdue(r)?`<span class="pill bad">Overdue</span>`:p.hs_task_status==="WAITING"||p.hs_task_status==="DEFERRED"?`<span class="pill waitp">Waiting</span>`:`<span class="pill acc">${p.hs_task_status==="IN_PROGRESS"?"In progress":"Not started"}</span>`;
-      return `<tr><td>${esc(nameOf[p.hubspot_owner_id]||"")}</td><td style="white-space:normal;min-width:220px">${esc(p.hs_task_subject||"(no subject)")}</td><td>${st}</td><td class="r">${daysAgo(p.hs_createdate)} days</td><td>${fd(p.hubspot_owner_assigneddate)}</td><td>${fd(p.hs_timestamp)}</td><td>${isOpen(r)?"":fd(p.hs_task_completion_date)}</td></tr>`}).join("")+"</tbody>";
+  const day=v=>{const d=new Date(Date.parse(v)+MNL);return d.getUTCDate()+" "+d.toUTCString().slice(8,11)};
+  const hm=v=>{const d=new Date(Date.parse(v)+MNL);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")};
+  const mDay=ms=>Math.floor((ms+MNL)/864e5);
+  const today=mDay(now);
+  const dueTxt=r=>{const v=P(r).hs_timestamp;if(!v)return`<span class="muted">No due date</span>`;const diff=mDay(Date.parse(v))-today;
+    const rel=!isOpen(r)?"":diff<0?`<small class="late">${-diff} day${diff===-1?"":"s"} late</small>`:diff===0?`<small class="soon">due today</small>`:`<small>in ${diff} day${diff===1?"":"s"}</small>`;
+    return `<span class="when">${day(v)}${rel}</span>`};
+  const kind=r=>!isOpen(r)?"done":overdue(r)?"overdue":(P(r).hs_timestamp&&mDay(Date.parse(P(r).hs_timestamp))===today)?"today":"open";
+  const inScope=all.filter(r=>isOpen(r)||inR(P(r).hs_task_completion_date));
+  const counts={overdue:0,today:0,open:0,done:0};inScope.forEach(r=>{const k=kind(r);counts[k]++;if(k!=="done"&&k!=="open")counts.open++});
+  const chips=[["all","All",inScope.length],["overdue","Overdue",counts.overdue],["today","Due today",counts.today],["open","Open",counts.open],["done","Completed",counts.done]];
+  $("taskchips").innerHTML=chips.map(c=>`<button type="button" class="chipbtn" data-k="${c[0]}" aria-pressed="${TASKVIEW===c[0]}">${c[1]} <b>${c[2]}</b></button>`).join("");
+  $("taskchips").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{TASKVIEW=b.dataset.k;renderTasks()}));
+  const show=r=>{const k=kind(r);return TASKVIEW==="all"||TASKVIEW===k||(TASKVIEW==="open"&&k!=="done")};
+  const order={overdue:0,today:1,open:2,done:3};
+  const blocks=agents.map(a=>{const mine=inScope.filter(r=>P(r).hubspot_owner_id===a.id&&show(r)).sort((x,y)=>order[kind(x)]-order[kind(y)]||(Date.parse(P(x).hs_timestamp||P(x).hs_createdate)-Date.parse(P(y).hs_timestamp||P(y).hs_createdate)));
+    return{a,mine}}).filter(b=>b.mine.length);
+  $("task-count").textContent=inScope.length+" tasks · overdue first";
+  $("taskdetail").innerHTML=blocks.map(({a,mine})=>{
+    const all_=inScope.filter(r=>P(r).hubspot_owner_id===a.id);const o=all_.filter(isOpen).length,ov=all_.filter(overdue).length,dn=all_.length-o;
+    const lim=EXPANDED[a.id]?mine.length:8;
+    return `<section class="agentblock"><header><b>${esc(a.name)}</b><span>${o} open${ov?` · <span class="late">${ov} overdue</span>`:""} · ${dn} completed in these dates</span></header>
+    <div class="tablewrap"><table><colgroup><col><col class="c-st"><col class="c-as"><col class="c-du"><col class="c-ag"><col class="c-co"></colgroup><thead><tr><th>Task</th><th>Status</th><th>Assigned on</th><th>Due</th><th class="r">Age</th><th>Completed on</th></tr></thead><tbody>`+
+    mine.slice(0,lim).map(r=>{const p=P(r);const k=kind(r);
+      const st=k==="done"?`<span class="pill ok">Done</span>`:k==="overdue"?`<span class="pill bad">Overdue</span>`:k==="today"?`<span class="pill warn">Due today</span>`:(p.hs_task_status==="WAITING"||p.hs_task_status==="DEFERRED")?`<span class="pill waitp">Waiting</span>`:`<span class="pill acc">${p.hs_task_status==="IN_PROGRESS"?"In progress":"Not started"}</span>`;
+      const ageEnd=isOpen(r)?now:Date.parse(p.hs_task_completion_date);const age=Math.max(0,Math.floor((ageEnd-Date.parse(p.hs_createdate))/864e5));
+      return `<tr><td style="white-space:normal">${esc(p.hs_task_subject||"(no subject)")}</td><td>${st}</td>
+        <td>${p.hubspot_owner_assigneddate?`<span class="when">${day(p.hubspot_owner_assigneddate)}<small>${hm(p.hubspot_owner_assigneddate)}</small></span>`:"<span class=muted>n/a</span>"}</td>
+        <td>${dueTxt(r)}</td><td class="r">${age} day${age===1?"":"s"}${isOpen(r)?"":`<br><small class="muted">to finish</small>`}</td>
+        <td>${isOpen(r)?`<span class="muted">Not yet</span>`:`<span class="when">${day(p.hs_task_completion_date)}<small>${hm(p.hs_task_completion_date)}</small></span>`}</td></tr>`}).join("")+
+    `</tbody></table></div>${mine.length>lim?`<button type="button" class="more" data-agent="${a.id}">Show ${mine.length-lim} more</button>`:""}</section>`}).join("")||`<p class="muted">No tasks match.</p>`;
+  $("taskdetail").querySelectorAll(".more").forEach(b=>b.addEventListener("click",()=>{EXPANDED[b.dataset.agent]=true;renderTasks()}));
   $("task-live").textContent=live.at?"Live · "+fmtTime(live.at):"";
 }
 function lineChart(keys,series,unit,wide){
@@ -617,12 +675,39 @@ function lineChart(keys,series,unit,wide){
   const every=Math.ceil(keys.length/8);keys.forEach((k,i)=>{if(i%every===0||i===keys.length-1)s+=`<text x="${x(i)}" y="${H-7}" text-anchor="middle">${bucketLabel(k)}</text>`});
   return s+"</svg>";
 }
+function renderLibrary(){
+  const rows=DAILY.length?DAILY:(SAMPLE_DAILY=SAMPLE_DAILY||sampleDaily());
+  const fmt=iso=>{const d=new Date(iso+"T00:00:00Z");return d.toUTCString().slice(0,11)};
+  const add=(iso,n)=>new Date(Date.parse(iso+"T00:00:00Z")+n*864e5).toISOString().slice(0,10);
+  const t=todayISO();
+  const SH={Morning:"14:10",Swing:"18:10",Mid:"22:10",Night:"06:10"};
+  const SO={Morning:0,Swing:1,Mid:2,Night:3};const wraps=rows.slice().sort((x,y)=>y.date.localeCompare(x.date)||SO[y.shift]-SO[x.shift]).slice(0,8).map(r=>({period:"day",from:r.date,to:r.date,shift:r.shift,
+    title:`${r.shift} shift · ${fmt(r.date)}`,sub:`ready ${SH[r.shift]||""}${r.shift==="Night"?" next day":""}`,ready:true}));
+  const thisMon=weekKey(t);const weeks=[];for(let i=1;i<=6;i++){const from=add(thisMon,-7*i),to=add(from,6);
+    weeks.push({period:"week",from,to,shift:"",title:`Week of ${fmt(from).slice(5)}`,sub:`${fmt(from).slice(5)} to ${fmt(to).slice(5)} · ready Mon ${fmt(add(to,1)).slice(5)} 5:00 AM`,ready:true})}
+  const months=[];const m0=new Date(t.slice(0,7)+"-01T00:00:00Z");for(let i=1;i<=3;i++){const d=new Date(Date.UTC(m0.getUTCFullYear(),m0.getUTCMonth()-i,1));const from=d.toISOString().slice(0,10);
+    const to=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);
+    months.push({period:"month",from,to,shift:"",title:d.toUTCString().slice(8,16),sub:`ready 1 ${new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,1)).toUTCString().slice(8,11)} 5:00 AM`,ready:true})}
+  const nextWeek={title:"This week",sub:`ready Mon ${fmt(add(thisMon,7)).slice(5)} 5:00 AM`,ready:false};
+  const nextMonth={title:new Date(t.slice(0,7)+"-01T00:00:00Z").toUTCString().slice(8,16),sub:"ready on the 1st, 5:00 AM",ready:false};
+  const btn=(r,i,g)=>r.ready?`<button type="button" class="rep" data-g="${g}" data-i="${i}" aria-current="${LIBSEL===g+i}"><span>${esc(r.title)}<small>${esc(r.sub)}</small></span><span class="pill ok">Ready</span></button>`
+    :`<div class="rep" style="cursor:default"><span>${esc(r.title)}<small>${esc(r.sub)}</small></span><span class="pill waitp">Building</span></div>`;
+  const col=(h,note,list,g,pending)=>`<div class="libcol"><h3>${h}<span>${note}</span></h3>${pending?btn(pending,0,"x"):""}${list.map((r,i)=>btn(r,i,g)).join("")}</div>`;
+  $("library").innerHTML=(usingSample.rep?`<p class="small muted" style="grid-column:1/-1"><span class="sample">Example</span> These fill with real reports once the end-of-shift runs start.</p>`:"")+
+    col("End of shift","10 min after each shift",wraps,"d")+col("Weekly","last week, Mon 5:00 AM",weeks,"w",nextWeek)+col("Monthly","last month, on the 1st",months,"m",nextMonth);
+  const groups={d:wraps,w:weeks,m:months};
+  $("library").querySelectorAll("button.rep").forEach(b=>b.addEventListener("click",()=>{const r=groups[b.dataset.g][+b.dataset.i];LIBSEL=b.dataset.g+b.dataset.i;
+    PERIOD=r.period;document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x.dataset.period===PERIOD));
+    $("f-from").value=r.from;$("f-to").value=r.to;$("f-shift").value=r.shift;renderReports();
+    $("rep-filters").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})}));
+}
+let LIBSEL="";
 function setDefaultRange(){
   const t=Date.parse(todayISO()+"T00:00:00Z");const back=PERIOD==="day"?7:PERIOD==="week"?28:90;
   $("f-to").value=new Date(t-864e5).toISOString().slice(0,10);$("f-from").value=new Date(t-back*864e5).toISOString().slice(0,10);
 }
 document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{PERIOD=b.dataset.period;document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));setDefaultRange();renderReports()}));
-["f-from","f-to","f-shift","f-store","f-agent"].forEach(id=>$(id).addEventListener("change",renderReports));
+["f-from","f-to","f-shift","f-store","f-agent"].forEach(id=>$(id).addEventListener("change",()=>{LIBSEL="";renderReports()}));
 function fillAgents(){const fa=$("f-agent");const v=fa.value;fa.innerHTML=`<option value="">All agents</option>`+TEAM.map(a=>`<option>${esc(a.name)}</option>`).join("");fa.value=v}
 
 /* ---------- Tabs ---------- */
