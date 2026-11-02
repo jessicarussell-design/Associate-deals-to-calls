@@ -612,7 +612,7 @@ function renderTasks(){
   $("taskchips").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{TASKVIEW=b.dataset.k;renderTasks()}));
   const show=r=>{const k=kind(r);return TASKVIEW==="all"||TASKVIEW===k||(TASKVIEW==="open"&&k!=="done")||(TASKVIEW==="attention"&&(k==="overdue"||k==="today"))};
   const order={overdue:0,today:1,open:2,done:3};
-  const blocks=agents.map(a=>{const mine=inScope.filter(r=>P(r).hubspot_owner_id===a.id&&show(r)).sort((x,y)=>order[kind(x)]-order[kind(y)]||(Date.parse(P(x).hs_timestamp||P(x).hs_createdate)-Date.parse(P(y).hs_timestamp||P(y).hs_createdate)));
+  const blocks=agents.map(a=>{const mine=inScope.filter(r=>!r.countOnly&&P(r).hubspot_owner_id===a.id&&show(r)).sort((x,y)=>order[kind(x)]-order[kind(y)]||(Date.parse(P(x).hs_timestamp||P(x).hs_createdate)-Date.parse(P(y).hs_timestamp||P(y).hs_createdate)));
     return{a,mine}}).filter(b=>b.mine.length);
   $("task-count").textContent="Click a name to see their tasks";
   $("taskdetail").innerHTML=blocks.map(({a,mine})=>{
