@@ -289,6 +289,7 @@ svg text{fill:var(--muted);font:11px var(--body)}
 
 </div>
 
+<script id="snapshot" type="application/json"></script>
 <script>
 (function(){
 "use strict";
@@ -681,7 +682,7 @@ function renderLibrary(){
 let LIBSEL="";const LIBOPEN={};
 function setDefaultRange(){
   const t=Date.parse(todayISO()+"T00:00:00Z");const back=PERIOD==="day"?7:PERIOD==="week"?28:90;
-  $("f-to").value=new Date(t-864e5).toISOString().slice(0,10);$("f-from").value=new Date(t-back*864e5).toISOString().slice(0,10);
+  $("f-to").value=todayISO();$("f-from").value=new Date(t-back*864e5).toISOString().slice(0,10);
 }
 document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{PERIOD=b.dataset.period;document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));setDefaultRange();renderReports()}));
 ["f-from","f-to","f-shift","f-store","f-agent"].forEach(id=>$(id).addEventListener("change",()=>{LIBSEL="";renderReports()}));
@@ -696,9 +697,23 @@ const h0=location.hash.slice(1);if(TABS.includes(h0))show(h0);
 window.addEventListener("hashchange",()=>{const n=location.hash.slice(1);if(TABS.includes(n))show(n)});
 
 /* ---------- Boot ---------- */
+/* Snapshot mode: the shared IV Insights copy carries its data inline and never calls Claude. */
+const SNAP=(()=>{try{const el=document.getElementById("snapshot");const t=el&&el.textContent.trim();return t?JSON.parse(t):null}catch(e){return null}})();
+if(SNAP){
+  if(Array.isArray(SNAP.team)&&SNAP.team.length) TEAM=SNAP.team.map(a=>Object.assign({},a,{id:String(a.id)}));
+  TODAY=SNAP.today||null; SHIFTDOCS=SNAP.shifts||[]; DAILY=SNAP.daily||[];
+  Object.keys(live).forEach(k=>{if(SNAP.live&&k in SNAP.live) live[k]=SNAP.live[k]});
+  live.at=SNAP.generatedAt||null;
+}
 fillAgents();setDefaultRange();renderClock();renderLive();renderLog();renderReports();
 setInterval(()=>{renderClock();renderLive()},60000);
-
+if(SNAP){
+  const age=SNAP.generatedAt?Math.round((Date.now()-SNAP.generatedAt)/60000):null;
+  setHsChip(age!=null&&age>90?"stale":"live","Updated "+(SNAP.generatedAt?fmtTime(SNAP.generatedAt)+" Manila":"")+" · refreshes hourly");
+  $("db-chip").hidden=true;
+  if(age!=null&&age>90) hsNotice("This copy hasn't refreshed for "+Math.round(age/60)+" hours. The hourly update may have stopped.",false);
+}
+if(!SNAP){
 (async()=>{
   const c=window.claude;
   mcp=c&&c.use?await c.use("mcp"):null;
@@ -717,5 +732,6 @@ setInterval(()=>{renderClock();renderLive()},60000);
   db.collection("shifts").orderBy("runAt","desc").limit(60).onSnapshot(s=>{if(!s.metadata.fromCache)ok();SHIFTDOCS=s.docs.map(d=>d.data());renderLog()},fail);
   db.collection("daily").orderBy("date","asc").limit(1000).onSnapshot(s=>{if(!s.metadata.fromCache)ok();DAILY=s.docs.map(d=>d.data());renderReports()},fail);
 })();
+}
 })();
 </script>
