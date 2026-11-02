@@ -358,8 +358,8 @@ const notMiles=r=>!String((r.properties||{}).hs_ticket_category||"").split(";").
 function renderLive(){
   const openBy=live.open?countBy(live.open.filter(notMiles),"hubspot_owner_id"):null;
   const closedBy=live.closed?countBy(live.closed,"hubspot_owner_id"):null;
-  const tasksBy=live.tasks?countBy(live.tasks,"hubspot_owner_id"):null;
-  const overdueBy={};(live.tasks||[]).forEach(r=>{const p=r.properties||{};if(p.hs_timestamp&&Date.parse(p.hs_timestamp)<Date.now()){overdueBy[p.hubspot_owner_id]=(overdueBy[p.hubspot_owner_id]||0)+1}});
+  const taskSrc=live.openAll||live.tasks;const tasksBy=taskSrc?countBy(taskSrc,"hubspot_owner_id"):null;
+  const mDayL=ms=>Math.floor((ms+MNL)/864e5);const overdueBy={};(taskSrc||[]).forEach(r=>{const p=r.properties||{};if(p.hs_timestamp&&mDayL(Date.parse(p.hs_timestamp))<mDayL(Date.now())){overdueBy[p.hubspot_owner_id]=(overdueBy[p.hubspot_owner_id]||0)+1}});
   const working=TEAM.filter(a=>isIn(a)!==false);
   const target=working.reduce((s,a)=>s+(+a.ticketTarget||0),0);
   const closed=closedBy?Object.values(closedBy).reduce((a,b)=>a+b,0):null;
@@ -374,7 +374,7 @@ function renderLive(){
     `<div class="stat"><span class="label">Open with agents</span><span class="val">${dash(open)}</span><span class="sub">tickets held right now</span></div>`,
     `<div class="stat${un&&un.length>15?" alert":""}"><span class="label">Unassigned tickets</span><span class="val">${un?un.length:"…"}</span><span class="sub">${un?(un.length?"oldest "+oldest+" days":"queue is clear"):"loading"}</span></div>`,
     `<div class="stat${urgent?" alert":""}"><span class="label">Urgent unassigned</span><span class="val">${dash(urgent)}</span><span class="sub">on tour or marked urgent</span></div>`,
-    `<div class="stat"><span class="label">Open T1 tasks</span><span class="val">${live.tasks?live.tasks.length:"…"}</span><span class="sub">${live.tasks?Object.values(overdueBy).reduce((a,b)=>a+b,0)+" past due":"held by agents"}</span></div>`
+    `<div class="stat"><span class="label">Open T1 tasks</span><span class="val">${taskSrc?taskSrc.length:"…"}</span><span class="sub">${taskSrc?Object.values(overdueBy).reduce((a,b)=>a+b,0)+" overdue":"held by agents"}</span></div>`
   ].join("");
 
   const q=(name,obj,desc)=>`<div class="q"><span>${name}</span><span class="n">${obj?obj.total:"…"}</span><span class="d">${desc(obj)}</span></div>`;
@@ -484,6 +484,7 @@ function postHTML(s){
    ${fl?`<div><h3>Worth a look</h3><ul>${fl}</ul></div>`:`<p class="muted small">Nothing else to flag.</p>`}</div>`;
 }
 function renderLog(){
+  if(!SHIFTDOCS.length&&DAILY.length){$("feed").innerHTML=`<p class="muted">Shift set-ups appear here once ticket and task assignment is switched on. Reporting is already live: see the Reports tab.</p>`;$("latest").innerHTML=`<p class="muted small">Starts once ticket and task assignment is switched on.</p>`;$("latest-when").textContent="";return}
   const docs=SHIFTDOCS.length?SHIFTDOCS:[SAMPLE_SHIFT];usingSample.log=!SHIFTDOCS.length;
   $("feed").innerHTML=(usingSample.log?`<p class="small muted">No shift set-ups yet. The first one lands 30 minutes after the next shift starts, once scheduling is switched on. Below is an example.</p>`:"")+docs.slice(0,30).map(postHTML).join("");
   const latest=docs[0];$("latest").innerHTML=postHTML(latest).replace('class="post"','class="post" style="border:0;padding:0"');
@@ -534,7 +535,7 @@ function renderReports(){
   const delta=(v,p,unit)=>p==null?"":`<span class="delta ${v>=p?"up":"down"}">${v>=p?"▲":"▼"} ${Math.abs(v-p)}${unit||""}</span>`;
   $("rep-kpis").innerHTML=[
     ["Target achieved",pc+"%"+delta(pc,ppc,"pts"),C+" closed of "+T],["Assigned",S(agentRows,"assigned"),"tickets given out"],["Actioned",S(agentRows,"actioned"),"tickets worked"],
-    ["Closed",C+delta(C,prevC),"tickets finished"],["Pending at start",S(agentRows,"pendingStart"),"before top-ups"]
+    ["Closed",C+delta(C,prevC),"tickets finished"],(()=>{const nd=new Set(agentRows.map(a=>a.date)).size||1;return nd>1?["Pending at start",Math.round(S(agentRows,"pendingStart")/nd),"average per day"]:["Pending at start",S(agentRows,"pendingStart"),"before top-ups"]})()
   ].map(k=>`<div class="stat"><span class="label">${k[0]}</span><span class="val">${k[1]}</span><span class="sub">${k[2]}</span></div>`).join("");
   $("cmp-note").textContent=ppc!=null?"Arrows compare with the same length of time just before":"";
 
@@ -555,7 +556,7 @@ function renderReports(){
   const groups=[
     ["Calls",[["Total Inbound Calls – T1",m("t1In")],["Total Outbound Calls – T1",m("t1Out")],["Total Inbound Calls – TA",m("taIn")],["Total Outbound Calls – TA",m("taOut")],["Missed Call Rate (MCR) – T1",fx(avg("t1Mcr"),1,"%")],["Missed Call Rate (MCR) – TA (6:00 AM–2:00 PM)",fx(avg("taMcr"),1,"%")]]],
     ["Tickets",[["Opening Number of Tickets",firstOf("ticketsOpening")??"n/a"],["Number of Aged Tickets",lastOf("ticketsAged")??"n/a"],["Tickets Closed per Agent ↓",C],["Average Ticket Turnaround Time (TAT)",fx(avg("ticketTatH"),1," h")],["Average Time to Close Tickets",fx(avg("ticketCloseH")!=null?avg("ticketCloseH")/24:null,1," days")]]],
-    ["Chats",[["Total Closed Chats",m("chatsClosed")],["First Contact Resolution (FCR)",fx(avg("fcr"),0,"%")],["Chat Response Time (CRT)",avg("crtSec")==null?"n/a":Math.floor(avg("crtSec")/60)+"m "+Math.round(avg("crtSec")%60)+"s"],["Closed Chats per Agent ↓",S(agentRows,"chatsClosed")]]],
+    ["Chats",[["Total Closed Chats",m("chatsClosed")],["First Contact Resolution (FCR)",fx(avg("fcr"),0,"%")],["Chat Response Time (CRT)",avg("crtSec")==null?"n/a":(v=>v>=3600?Math.floor(v/3600)+"h "+Math.round(v%3600/60)+"m":Math.floor(v/60)+"m "+Math.round(v%60)+"s")(avg("crtSec"))],["Closed Chats per Agent ↓",S(agentRows,"chatsClosed")]]],
     ["Task",[["Opening task – T1",firstOf("t1TasksOpening")??"n/a"],["Closed task – T1 (per agent) ↓",S(agentRows,"t1TasksClosed")],["Opening task – T2",firstOf("t2TasksOpening")??"n/a"],["Closed task – T2",m("t2TasksClosed")],["360 task",lastOf("t360")??(live.q360?live.q360.total+" unassigned now (live)":"loading")],["Average TAT – T1",fx(avg("t1TatD"),1," days")],["Average TAT – T2",fx(avg("t2TatD"),1," days")],["CS Pending Enquiry Task",lastOf("pendingEnquiry")??"n/a"],["Remaining task",lastOf("tasksRemaining")??"n/a"]]]
   ];
   $("metrics").innerHTML=groups.map(g=>`<div class="mgroup"><h3>${g[0]}</h3>${g[1].map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join("")}</div>`).join("");
@@ -732,7 +733,7 @@ if(!SNAP){
   db.doc("config/team").onSnapshot(s=>{if(!s.metadata.fromCache)ok();const d=s.exists&&s.data();if(d&&Array.isArray(d.agents)&&d.agents.length){TEAM=d.agents.map(a=>Object.assign({},a,{id:String(a.id)}));fillAgents();SAMPLE_DAILY=null;renderLive();renderReports();if(mcp)startLive()}},fail);
   db.doc("config/today").onSnapshot(s=>{TODAY=s.exists?s.data():null;renderLive()},fail);
   db.collection("shifts").orderBy("runAt","desc").limit(60).onSnapshot(s=>{if(!s.metadata.fromCache)ok();SHIFTDOCS=s.docs.map(d=>d.data());renderLog()},fail);
-  db.collection("daily").orderBy("date","asc").limit(1000).onSnapshot(s=>{if(!s.metadata.fromCache)ok();DAILY=s.docs.map(d=>d.data());renderReports()},fail);
+  db.collection("daily").orderBy("date","asc").limit(1000).onSnapshot(s=>{if(!s.metadata.fromCache)ok();DAILY=s.docs.map(d=>d.data());renderReports();renderLog()},fail);
 })();
 }
 })();
