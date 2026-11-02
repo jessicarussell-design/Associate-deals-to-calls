@@ -193,7 +193,6 @@ svg text{fill:var(--muted);font:11px var(--body)}
     <button role="tab" aria-selected="true" data-tab="live" id="tab-live">Live</button>
     <button role="tab" aria-selected="false" data-tab="log" id="tab-log">Shift log</button>
     <button role="tab" aria-selected="false" data-tab="reports" id="tab-reports">Reports</button>
-    <button role="tab" aria-selected="false" data-tab="how" id="tab-how">How it works</button>
   </nav>
 
   <!-- LIVE -->
@@ -288,28 +287,6 @@ svg text{fill:var(--muted);font:11px var(--body)}
     </div>
   </section>
 
-  <!-- HOW -->
-  <section id="how" class="grid" hidden>
-    <div class="grid two">
-      <div class="panel">
-        <h2>What updates when</h2>
-        <div class="timeline">
-          <div class="trow"><span class="t">Every 3 min</span><span><span class="pill ok">Live</span> Open tickets, closed today, unassigned queues, straight from HubSpot while this page is open</span></div>
-          <div class="trow"><span class="t">Before</span><span><span class="pill bad">Check</span> Every top-up checks two things: the sheet says IN, and the agent has logged a call, email or note since their shift started. Anyone on the sheet but not seen gets nothing and is flagged, then re-checked 2 hours into the shift.</span></div>
-          <div class="trow"><span class="t">06:30</span><span><span class="pill acc">Set-up</span> Morning shift top-up (catch-up 08:00)</span></div>
-          <div class="trow"><span class="t">10:30</span><span><span class="pill acc">Set-up</span> Swing shift top-up</span></div>
-          <div class="trow"><span class="t">14:30</span><span><span class="pill acc">Set-up</span> Mid shift top-up</span></div>
-          <div class="trow"><span class="t">22:30</span><span><span class="pill acc">Set-up</span> Night shift top-up (US/CA)</span></div>
-          <div class="trow"><span class="t">06:10</span><span><span class="pill waitp">Report</span> Night shift wrap</span></div>
-          <div class="trow"><span class="t">14:10</span><span><span class="pill waitp">Report</span> Morning shift wrap</span></div>
-          <div class="trow"><span class="t">18:10</span><span><span class="pill waitp">Report</span> Swing shift wrap</span></div>
-          <div class="trow"><span class="t">22:10</span><span><span class="pill waitp">Report</span> Mid shift wrap</span></div>
-          <div class="trow"><span class="t">Mon / 1st</span><span><span class="pill waitp">Report</span> Weekly and monthly views build from the daily wraps</span></div>
-        </div>
-        <p class="small muted">Set-ups and wraps appear on this page the moment they finish. Nothing goes to Slack.</p>
-      </div>
-    </div>
-  </section>
 </div>
 
 <script>
@@ -711,7 +688,7 @@ document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",(
 function fillAgents(){const fa=$("f-agent");const v=fa.value;fa.innerHTML=`<option value="">All agents</option>`+TEAM.map(a=>`<option>${esc(a.name)}</option>`).join("");fa.value=v}
 
 /* ---------- Tabs ---------- */
-const TABS=["live","log","reports","how"];
+const TABS=["live","log","reports"];
 const tabs=[...document.querySelectorAll("nav.tabs button")];
 function show(n){tabs.forEach(b=>{const on=b.dataset.tab===n;b.setAttribute("aria-selected",on);$(b.dataset.tab).hidden=!on})}
 tabs.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.tab);try{history.replaceState(null,"","#"+b.dataset.tab)}catch(e){}}));
