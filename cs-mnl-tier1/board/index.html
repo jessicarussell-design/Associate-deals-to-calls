@@ -219,17 +219,31 @@ svg text{fill:var(--muted);font:11px var(--body)}
       </div>
     </div>
     <div class="panel">
-      <div class="panel-head"><h2>Calls, tickets, chats and tasks</h2><span class="muted small" id="cmp-note"></span></div>
+      <div class="panel-head"><h2>Allocation and productivity over time</h2>
+        <div class="legend"><span style="--c:var(--muted)">Assigned</span><span style="--c:var(--warn)">Actioned</span><span style="--c:var(--accent)">Closed</span></div></div>
+      <div id="chart3"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Ticket Assignment and Productivity, day by day</h2><span class="muted small" id="b-scope"></span></div>
+      <p class="muted small">Pick an agent in the filters above to see one person's days. Assigned = given to them. Actioned = they replied or moved it. Closed = finished.</p>
+      <div class="tablewrap"><table id="bdaily"></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Report Requests</h2><span class="muted small" id="cmp-note"></span></div>
+      <p class="small muted">Same lines as the Report Requests tab. Daily: 10 minutes after each shift. Weekly: last week, ready by Monday 5:00 AM. Monthly: last month, ready on the 1st.</p>
       <div class="metrics" id="metrics"></div>
     </div>
     <div class="panel">
-      <h2>Ticket productivity by agent</h2>
+      <h2>Per agent: tickets, tasks and chats</h2>
       <p class="muted small">Assigned = given to them. Actioned = they replied or moved it. Closed = finished. Each counted on its own.</p>
       <div class="tablewrap"><table id="prod"></table></div>
     </div>
     <div class="panel">
-      <h2>Task monitoring</h2>
+      <div class="panel-head"><h2>Task Monitoring Report</h2><span class="muted small" id="task-live"></span></div>
+      <p class="muted small">Live from HubSpot. Assigned and completed count within the dates picked above; pending and overdue are right now.</p>
       <div class="tablewrap"><table id="tasks"></table></div>
+      <div class="panel-head"><h3>Every task</h3><span class="muted small" id="task-count"></span></div>
+      <div class="tablewrap"><table id="taskdetail"></table></div>
     </div>
   </section>
 
@@ -296,7 +310,7 @@ let TEAM=[
 let TODAY=null; // {date, in:[ids]} from the store
 
 /* ---------- Live state ---------- */
-const live={open:null,closed:null,unTickets:null,qAll:null,qCb:null,qCruise:null,tasks:null,calls:null,emails:null,notes:null,at:null};
+const live={open:null,closed:null,unTickets:null,qAll:null,qCb:null,qCruise:null,tasks:null,openAll:null,doneAll:null,calls:null,emails:null,notes:null,at:null};
 
 /* Signs of work: a call, email or note the agent logged since their shift started. */
 const SHIFT_HOUR={Morning:6,Swing:10,Mid:14,Night:22};
@@ -416,7 +430,7 @@ function watchSearch(key,base,full){
     const p=ev.result.payload;if(!p||typeof p!=="object"){return}
     try{live[key]=full?await fetchRest(base,p):{total:p.total||0};}catch(e){handleHsError(e);return}
     live.at=ev.result.cache?ev.result.cache.storedAt:Date.now();
-    hsNotice("",false);setHsChip("live","Live · HubSpot "+fmtTime(live.at));renderLive();
+    hsNotice("",false);setHsChip("live","Live · HubSpot "+fmtTime(live.at));renderLive();if(key==="openAll"||key==="doneAll")renderTasks();
   },{cache:{staleTime:60000,gcTime:600000},refetchInterval:180000});
   unsubs.push(u);
 }
@@ -436,6 +450,11 @@ function startLive(){
   const taskIds=TEAM.filter(a=>a.taskTarget).map(a=>a.id);
   watchSearch("tasks",{objectType:"TASK",limit:200,properties:["hubspot_owner_id","hs_timestamp"],chatInsights:insights,
     filterGroups:[{filters:[{propertyName:"hs_task_status",operator:"IN",values:OPEN_STATUSES},{propertyName:"hubspot_owner_id",operator:"IN",values:taskIds}]}]},true);
+  const TP=["hubspot_owner_id","hs_task_subject","hs_task_status","hs_createdate","hubspot_owner_assigneddate","hs_timestamp","hs_task_completion_date"];
+  watchSearch("openAll",{objectType:"TASK",limit:200,properties:TP,chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_task_status",operator:"IN",values:OPEN_STATUSES},{propertyName:"hubspot_owner_id",operator:"IN",values:ids}]}]},true);
+  watchSearch("doneAll",{objectType:"TASK",limit:200,properties:TP,chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_task_completion_date",operator:"GTE",value:new Date(Date.now()-35*864e5).toISOString()},{propertyName:"hubspot_owner_id",operator:"IN",values:ids}]}]},true);
   const actFrom=new Date(activityStart()).toISOString();
   ["CALL","EMAIL","NOTE"].forEach(t=>watchSearch(t==="CALL"?"calls":t==="EMAIL"?"emails":"notes",{objectType:t,limit:200,properties:["hubspot_owner_id","hs_createdate"],chatInsights:insights,
     filterGroups:[{filters:[{propertyName:"hs_createdate",operator:"GTE",value:actFrom},{propertyName:"hubspot_owner_id",operator:"IN",values:ids}]}]},true));
@@ -478,7 +497,7 @@ function sampleDaily(){
   for(let i=41;i>=1;i--){const date=new Date(end-i*864e5).toISOString().slice(0,10);
     SHIFTS.forEach(s=>{const ag=TEAM.filter(a=>a.shift===s.key).filter(()=>rnd()>.2).map(a=>{const t=+a.ticketTarget;const pend=Math.round(t*.5*rnd());const asg=Math.max(0,t-pend);const clo=Math.round(t*(.55+.55*rnd()));
       const tt=typeof a.taskTarget==="number"?a.taskTarget:a.taskTarget?4:0;
-      return{id:a.id,name:a.name,store:a.store,target:t,pendingStart:pend,assigned:asg,actioned:Math.min(pend+asg+2,clo+Math.round(t*.3*rnd())),closed:clo,remaining:Math.max(0,pend+asg-clo),
+      return{id:a.id,name:a.name,store:a.store,chatsClosed:Math.round(6*rnd()),t1TasksClosed:Math.round((tt||3)*(.4+.6*rnd())),target:t,pendingStart:pend,assigned:asg,actioned:Math.min(pend+asg+2,clo+Math.round(t*.3*rnd())),closed:clo,remaining:Math.max(0,pend+asg-clo),
         taskTarget:a.taskTarget,tasksAssigned:tt?Math.round(tt*(.4+.5*rnd())):0,tasksDone:tt?Math.round(tt*(.5+.5*rnd())):0,tasksOpen:tt?Math.round(tt*.6*rnd()):0,tasksOverdue:tt?Math.round(3*rnd()):0,oldestTaskDays:tt?1+Math.round(8*rnd()):0}});
       const f=s.key==="Morning"?1:.35;
       out.push({sample:true,date,shift:s.key,agents:ag,metrics:{t1In:Math.round(180*f*(.8+.4*rnd())),t1Out:Math.round(40*f*(.8+.4*rnd())),t1Mcr:+(4+5*rnd()).toFixed(1),taIn:s.key==="Morning"?Math.round(37*(.8+.4*rnd())):0,taOut:s.key==="Morning"?Math.round(9*(.8+.4*rnd())):0,taMcr:s.key==="Morning"?+(2+5*rnd()).toFixed(1):null,
@@ -526,24 +545,60 @@ function renderReports(){
   const firstOf=k=>{const v=sel.filter(r=>(r.metrics||{})[k]!=null);return v.length?v[0].metrics[k]:null};
   const lastOf=k=>{const v=sel.filter(r=>(r.metrics||{})[k]!=null);return v.length?v[v.length-1].metrics[k]:null};
   const fx=(v,d,u)=>v==null?"n/a":(+v).toFixed(d)+(u||"");
+  const per="see per-agent table";
   const groups=[
-    ["Calls",[["Inbound, T1",m("t1In")],["Outbound, T1",m("t1Out")],["Missed call rate, T1",fx(avg("t1Mcr"),1,"%")],["Inbound, TA",m("taIn")],["Outbound, TA",m("taOut")],["Missed call rate, TA (6am to 2pm)",fx(avg("taMcr"),1,"%")]]],
-    ["Tickets",[["Opening tickets",firstOf("ticketsOpening")??"n/a"],["Aged tickets (now)",lastOf("ticketsAged")??"n/a"],["Closed per agent (avg)",agentRows.length?(C/new Set(agentRows.map(a=>a.name)).size).toFixed(1):"n/a"],["Avg first reply",fx(avg("ticketTatH"),1," h")],["Avg time to close",fx(avg("ticketCloseH")!=null?avg("ticketCloseH")/24:null,1," days")]]],
-    ["Chats",[["Closed chats",m("chatsClosed")],["First contact resolution",fx(avg("fcr"),0,"%")],["Chat response time",avg("crtSec")==null?"n/a":Math.floor(avg("crtSec")/60)+"m "+Math.round(avg("crtSec")%60)+"s"]]],
-    ["Tasks",[["Opening, T1",firstOf("t1TasksOpening")??"n/a"],["Closed, T1",m("t1TasksClosed")],["Opening, T2",firstOf("t2TasksOpening")??"n/a"],["Closed, T2",m("t2TasksClosed")],["360 tasks",lastOf("t360")??"queue to confirm"],["Avg turnaround, T1",fx(avg("t1TatD"),1," days")],["Avg turnaround, T2",fx(avg("t2TatD"),1," days")],["CS pending enquiries",lastOf("pendingEnquiry")??"n/a"],["Remaining tasks",lastOf("tasksRemaining")??"n/a"]]]
+    ["Calls",[["Total Inbound Calls – T1",m("t1In")],["Total Outbound Calls – T1",m("t1Out")],["Total Inbound Calls – TA",m("taIn")],["Total Outbound Calls – TA",m("taOut")],["Missed Call Rate (MCR) – T1",fx(avg("t1Mcr"),1,"%")],["Missed Call Rate (MCR) – TA (6:00 AM–2:00 PM)",fx(avg("taMcr"),1,"%")]]],
+    ["Tickets",[["Opening Number of Tickets",firstOf("ticketsOpening")??"n/a"],["Number of Aged Tickets",lastOf("ticketsAged")??"n/a"],["Tickets Closed per Agent",C+" total, "+per],["Average Ticket Turnaround Time (TAT)",fx(avg("ticketTatH"),1," h")],["Average Time to Close Tickets",fx(avg("ticketCloseH")!=null?avg("ticketCloseH")/24:null,1," days")]]],
+    ["Chats",[["Total Closed Chats",m("chatsClosed")],["First Contact Resolution (FCR)",fx(avg("fcr"),0,"%")],["Chat Response Time (CRT)",avg("crtSec")==null?"n/a":Math.floor(avg("crtSec")/60)+"m "+Math.round(avg("crtSec")%60)+"s"],["Closed Chats per Agent",S(agentRows,"chatsClosed")+" total, "+per]]],
+    ["Task",[["Opening task – T1",firstOf("t1TasksOpening")??"n/a"],["Closed task – T1 (per agent)",S(agentRows,"t1TasksClosed")+" total, "+per],["Opening task – T2",firstOf("t2TasksOpening")??"n/a"],["Closed task – T2",m("t2TasksClosed")],["360 task",lastOf("t360")??"queue to confirm"],["Average TAT – T1",fx(avg("t1TatD"),1," days")],["Average TAT – T2",fx(avg("t2TatD"),1," days")],["CS Pending Enquiry Task",lastOf("pendingEnquiry")??"n/a"],["Remaining task",lastOf("tasksRemaining")??"n/a"]]]
   ];
   $("metrics").innerHTML=groups.map(g=>`<div class="mgroup"><h3>${g[0]}</h3>${g[1].map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join("")}</div>`).join("");
 
   // productivity
-  const by={};agentRows.forEach(a=>{const o=by[a.name]=by[a.name]||{name:a.name,shift:a.shift,store:a.store,d:0,target:0,pendingStart:0,assigned:0,actioned:0,closed:0,remaining:0,last:""};
-    o.d++;["target","pendingStart","assigned","actioned","closed"].forEach(k=>o[k]+=+a[k]||0);if(a.date>=o.last){o.last=a.date;o.remaining=+a.remaining||0}});
+  const by={};agentRows.forEach(a=>{const o=by[a.name]=by[a.name]||{name:a.name,shift:a.shift,store:a.store,d:0,target:0,pendingStart:0,assigned:0,actioned:0,closed:0,remaining:0,t1TasksClosed:0,chatsClosed:0,last:""};
+    o.d++;["target","pendingStart","assigned","actioned","closed","t1TasksClosed","chatsClosed"].forEach(k=>o[k]+=+a[k]||0);if(a.date>=o.last){o.last=a.date;o.remaining=+a.remaining||0}});
   const list=Object.values(by).sort((a,b)=>(b.target?b.closed/b.target:0)-(a.target?a.closed/a.target:0));
   const pill=p=>`<span class="pill ${p>=100?"ok":p>=70?"warn":"bad"}">${p}%</span>`;
-  $("prod").innerHTML=`<thead><tr><th>Agent</th><th>Shift</th><th>Store</th><th class="r">Days in</th><th class="r">Target</th><th class="r">Pending at start</th><th class="r">Assigned</th><th class="r">Actioned</th><th class="r">Closed</th><th class="r">Pending now</th><th>Achievement</th></tr></thead><tbody>`+
-    (list.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.shift}</td><td>${a.store}</td><td class="r">${a.d}</td><td class="r">${a.target}</td><td class="r">${a.pendingStart}</td><td class="r">${a.assigned}</td><td class="r">${a.actioned}</td><td class="r">${a.closed}</td><td class="r">${a.remaining}</td><td>${pill(a.target?Math.round(100*a.closed/a.target):0)}</td></tr>`).join("")||`<tr><td colspan="11" class="muted">No one matches these filters.</td></tr>`)+"</tbody>";
-  const tb={};agentRows.filter(a=>a.taskTarget).forEach(a=>{const o=tb[a.name]=tb[a.name]||{name:a.name,t:a.taskTarget,as:0,dn:0,op:0,ov:0,age:0,last:""};o.as+=+a.tasksAssigned||0;o.dn+=+a.tasksDone||0;if(a.date>=o.last){o.last=a.date;o.op=+a.tasksOpen||0;o.ov=+a.tasksOverdue||0}o.age=Math.max(o.age,+a.oldestTaskDays||0)});
-  $("tasks").innerHTML=`<thead><tr><th>Agent</th><th>Task role</th><th class="r">Assigned</th><th class="r">Completed</th><th class="r">Open</th><th class="r">Overdue</th><th class="r">Oldest open</th></tr></thead><tbody>`+
+  $("prod").innerHTML=`<thead><tr><th>Agent</th><th>Shift</th><th>Store</th><th class="r">Days in</th><th class="r">Daily ticket target</th><th class="r">Existing pending</th><th class="r">Assigned</th><th class="r">Actioned</th><th class="r">Closed</th><th class="r">Remaining pending</th><th>Target achievement</th><th class="r">T1 tasks closed</th><th class="r">Chats closed</th></tr></thead><tbody>`+
+    (list.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.shift}</td><td>${a.store}</td><td class="r">${a.d}</td><td class="r">${a.target}</td><td class="r">${a.pendingStart}</td><td class="r">${a.assigned}</td><td class="r">${a.actioned}</td><td class="r">${a.closed}</td><td class="r">${a.remaining}</td><td>${pill(a.target?Math.round(100*a.closed/a.target):0)}</td><td class="r">${a.t1TasksClosed}</td><td class="r">${a.chatsClosed}</td></tr>`).join("")||`<tr><td colspan="13" class="muted">No one matches these filters.</td></tr>`)+"</tbody>";
+  // chart 3: assigned / actioned / closed over time
+  const A3={};agentRows.forEach(a=>{const k=bucketOf(a.date);(A3[k]=A3[k]||{as:0,ac:0,cl:0});A3[k].as+=+a.assigned||0;A3[k].ac+=+a.actioned||0;A3[k].cl+=+a.closed||0});
+  $("chart3").innerHTML=lineChart(Object.keys(A3).sort(),[{vals:k=>A3[k].as,stroke:"var(--muted)"},{vals:k=>A3[k].ac,stroke:"var(--warn)"},{vals:k=>A3[k].cl,stroke:"var(--accent)",fill:true}],"");
+  // B: day by day
+  const D={};agentRows.forEach(a=>{const o=D[a.date]=D[a.date]||{date:a.date,target:0,pendingStart:0,assigned:0,actioned:0,closed:0,remaining:0,n:0};o.n++;["target","pendingStart","assigned","actioned","closed","remaining"].forEach(k=>o[k]+=+a[k]||0)});
+  const days=Object.values(D).sort((x,y)=>y.date.localeCompare(x.date));
+  $("b-scope").textContent=f.agent?f.agent:(f.shift||"All shifts")+(f.store?" · "+f.store:"");
+  $("bdaily").innerHTML=`<thead><tr><th>Date</th><th class="r">Daily ticket target</th><th class="r">Existing pending tickets</th><th class="r">Tickets assigned</th><th class="r">Tickets actioned</th><th class="r">Tickets closed</th><th class="r">Remaining pending tickets</th><th>Target achievement</th></tr></thead><tbody>`+
+    (days.map(d=>{const pp=d.target?Math.round(100*d.closed/d.target):0;const dd=new Date(d.date+"T00:00:00Z");return `<tr><td>${dd.toUTCString().slice(0,11)}</td><td class="r">${d.target}</td><td class="r">${d.pendingStart}</td><td class="r">${d.assigned}</td><td class="r">${d.actioned}</td><td class="r">${d.closed}</td><td class="r">${d.remaining}</td><td>${pill(pp)}</td></tr>`}).join("")||`<tr><td colspan="8" class="muted">Nothing in this range.</td></tr>`)+"</tbody>";
+  renderTasks();
     (Object.values(tb).map(a=>`<tr><td>${esc(a.name)}</td><td>${a.t==="Cruise"?"Cruise queue":"Target "+a.t+" a day"}</td><td class="r">${a.as}</td><td class="r">${a.dn}</td><td class="r">${a.op}</td><td class="r">${a.ov?`<span class="pill bad">${a.ov}</span>`:"0"}</td><td class="r">${a.age} business days</td></tr>`).join("")||`<tr><td colspan="7" class="muted">No task owners match these filters.</td></tr>`)+"</tbody>";
+}
+function renderTasks(){
+  const el=$("tasks");if(!el)return;
+  const f={from:$("f-from").value,to:$("f-to").value,shift:$("f-shift").value,store:$("f-store").value,agent:$("f-agent").value};
+  if(!live.openAll||!live.doneAll){el.innerHTML=`<tbody><tr><td class="muted">${mcp?"Loading tasks from HubSpot…":"Live task data needs HubSpot (open this page in claude.ai)."}</td></tr></tbody>`;$("taskdetail").innerHTML="";$("task-count").textContent="";return}
+  const fromMs=f.from?Date.parse(f.from+"T00:00:00Z")-MNL:0,toMs=f.to?Date.parse(f.to+"T00:00:00Z")-MNL+864e5:Infinity;
+  const inR=v=>{const t=Date.parse(v||"");return t>=fromMs&&t<toMs};
+  const agents=TEAM.filter(a=>(!f.shift||a.shift===f.shift)&&(!f.store||a.store===f.store)&&(!f.agent||a.name===f.agent));
+  const ids=new Set(agents.map(a=>a.id));const nameOf={};TEAM.forEach(a=>nameOf[a.id]=a.name);
+  const all=live.openAll.concat(live.doneAll).filter(r=>ids.has((r.properties||{}).hubspot_owner_id));
+  const now=Date.now();const P=r=>r.properties||{};
+  const isOpen=r=>OPEN_STATUSES.includes(P(r).hs_task_status);
+  const overdue=r=>isOpen(r)&&P(r).hs_timestamp&&Date.parse(P(r).hs_timestamp)<now;
+  const rows=agents.map(a=>{const mine=all.filter(r=>P(r).hubspot_owner_id===a.id);const open=mine.filter(isOpen);
+    return{name:a.name,assigned:mine.filter(r=>inR(P(r).hubspot_owner_assigneddate)).length,done:mine.filter(r=>!isOpen(r)&&inR(P(r).hs_task_completion_date)).length,
+      pending:open.length,over:open.filter(overdue).length,oldest:open.length?Math.max(...open.map(r=>daysAgo(P(r).hs_createdate))):0}}).filter(x=>x.assigned||x.done||x.pending);
+  rows.sort((x,y)=>y.over-x.over||y.pending-x.pending);
+  el.innerHTML=`<thead><tr><th>Agent name</th><th class="r">Tasks assigned</th><th class="r">Tasks completed</th><th class="r">Pending</th><th class="r">Overdue</th><th class="r">Oldest pending</th></tr></thead><tbody>`+
+    (rows.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${x.assigned}</td><td class="r">${x.done}</td><td class="r">${x.pending}</td><td class="r">${x.over?`<span class="pill bad">${x.over}</span>`:"0"}</td><td class="r">${x.pending?x.oldest+" days":"n/a"}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">No tasks for these filters.</td></tr>`)+"</tbody>";
+  const fd=v=>{if(!v)return"n/a";const d=new Date(Date.parse(v)+MNL);return d.getUTCDate()+" "+d.toUTCString().slice(8,11)+" "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")};
+  const det=all.filter(r=>isOpen(r)||inR(P(r).hs_task_completion_date)).sort((x,y)=>(overdue(y)-overdue(x))||(isOpen(y)-isOpen(x))||(Date.parse(P(x).hs_createdate)-Date.parse(P(y).hs_createdate)));
+  const cap=150;
+  $("task-count").textContent=det.length>cap?"oldest "+cap+" of "+det.length+" shown":det.length+" tasks";
+  $("taskdetail").innerHTML=`<thead><tr><th>Agent</th><th>Task</th><th>Status</th><th class="r">Age</th><th>Assigned</th><th>Due</th><th>Completed</th></tr></thead><tbody>`+
+    det.slice(0,cap).map(r=>{const p=P(r);const st=!isOpen(r)?`<span class="pill ok">Done</span>`:overdue(r)?`<span class="pill bad">Overdue</span>`:p.hs_task_status==="WAITING"||p.hs_task_status==="DEFERRED"?`<span class="pill waitp">Waiting</span>`:`<span class="pill acc">${p.hs_task_status==="IN_PROGRESS"?"In progress":"Not started"}</span>`;
+      return `<tr><td>${esc(nameOf[p.hubspot_owner_id]||"")}</td><td style="white-space:normal;min-width:220px">${esc(p.hs_task_subject||"(no subject)")}</td><td>${st}</td><td class="r">${daysAgo(p.hs_createdate)} days</td><td>${fd(p.hubspot_owner_assigneddate)}</td><td>${fd(p.hs_timestamp)}</td><td>${isOpen(r)?"":fd(p.hs_task_completion_date)}</td></tr>`}).join("")+"</tbody>";
+  $("task-live").textContent=live.at?"Live · "+fmtTime(live.at):"";
 }
 function lineChart(keys,series,unit){
   const W=540,H=210,pl=40,pb=26,pt=10,pr=12;
