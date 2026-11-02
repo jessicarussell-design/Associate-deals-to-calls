@@ -1,0 +1,570 @@
+<title>Tier 1 Ops Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: live strip on top, tabbed working views below; agent board is a wrapping grid of shift lanes. */
+:root{
+  --bg:#f3f6f7; --panel:#ffffff; --panel-2:#f8fafb; --ink:#13222a; --muted:#5a6a72; --line:#dce4e7;
+  --accent:#0d6b71; --accent-soft:#dff0f0; --accent-ink:#ffffff;
+  --ok:#2c7a4c; --warn:#a96300; --bad:#b03636; --wait:#666a84;
+  --ok-soft:#e3f2e9; --warn-soft:#fbefdc; --bad-soft:#f8e2e2; --wait-soft:#eaebf2;
+  --display:"Manrope",system-ui,sans-serif; --body:"Source Sans 3",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e161a; --panel:#152127; --panel-2:#192830; --ink:#e2ebee; --muted:#93a5ac; --line:#25353b;
+  --accent:#4fb3b8; --accent-soft:#143739; --accent-ink:#0e161a;
+  --ok:#6cc08d; --warn:#e3a54a; --bad:#e17b7b; --wait:#a5a9c2;
+  --ok-soft:#163125; --warn-soft:#382a13; --bad-soft:#3a1c1c; --wait-soft:#232539; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e161a; --panel:#152127; --panel-2:#192830; --ink:#e2ebee; --muted:#93a5ac; --line:#25353b;
+  --accent:#4fb3b8; --accent-soft:#143739; --accent-ink:#0e161a;
+  --ok:#6cc08d; --warn:#e3a54a; --bad:#e17b7b; --wait:#a5a9c2;
+  --ok-soft:#163125; --warn-soft:#382a13; --bad-soft:#3a1c1c; --wait-soft:#232539; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:1.55rem;font-weight:800;letter-spacing:-.015em}
+h2{font-size:1.08rem;font-weight:700}
+h3{font-size:.92rem;font-weight:700}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+.num{font-variant-numeric:tabular-nums}
+
+header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;justify-content:space-between}
+.title{display:grid;gap:4px}
+.status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 .78rem var(--display);padding:5px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--line);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.chip.live .dot{background:var(--ok)}
+.chip.stale .dot{background:var(--warn)}
+.chip.off .dot{background:var(--bad)}
+@media (prefers-reduced-motion:no-preference){.chip.live .dot{animation:pulse 2s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}}
+.sample{font:600 .7rem var(--display);letter-spacing:.06em;text-transform:uppercase;background:var(--warn-soft);color:var(--warn);padding:4px 8px;border-radius:4px;white-space:nowrap}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-block:8px}
+nav.tabs button{font:600 .9rem var(--display);border:0;background:none;color:var(--muted);padding:8px 12px;border-radius:6px;cursor:pointer}
+nav.tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:14px;min-width:0}
+.panel-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between}
+.grid{display:grid;gap:14px}
+.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+
+/* Live strip */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{background:var(--panel);padding:14px 16px;display:grid;gap:2px;align-content:start}
+.stat .label{font:600 .7rem var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.stat .val{font:800 1.75rem/1.15 var(--display);font-variant-numeric:tabular-nums}
+.stat .sub{font-size:.84rem;color:var(--muted)}
+.stat .meter{height:6px;border-radius:3px;background:var(--line);margin-top:6px;overflow:hidden}
+.stat .meter i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.stat.alert .val{color:var(--bad)}
+
+/* Shift ribbon */
+.ribbon{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.lane{padding:8px 10px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);display:grid;gap:1px}
+.lane b{font:700 .85rem var(--display)}
+.lane span{font-size:.78rem;color:var(--muted)}
+.lane.now{background:var(--accent);border-color:var(--accent)}
+.lane.now b,.lane.now span{color:var(--accent-ink)}
+@media (max-width:520px){.ribbon{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Agent board */
+.shiftgroup{display:grid;gap:8px}
+.shiftgroup h3{display:flex;gap:8px;align-items:baseline}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:8px}
+.card{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px;background:var(--panel)}
+.card.offduty{opacity:.55}
+.card .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .name{font:700 .95rem var(--display)}
+.card .figs{display:flex;gap:14px;font-size:.82rem;color:var(--muted)}
+.card .figs b{font:700 1rem var(--display);color:var(--ink);font-variant-numeric:tabular-nums;margin-right:3px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.bar.ok i{background:var(--ok)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font:600 .74rem var(--display);white-space:nowrap}
+.ok{background:var(--ok-soft);color:var(--ok)} .warn{background:var(--warn-soft);color:var(--warn)} .bad{background:var(--bad-soft);color:var(--bad)} .waitp{background:var(--wait-soft);color:var(--wait)} .acc{background:var(--accent-soft);color:var(--accent)}
+
+/* Queues */
+.queues{display:grid;gap:0}
+.q{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+.q:last-child{border-bottom:0}
+.q .n{font:800 1.25rem var(--display);font-variant-numeric:tabular-nums;text-align:right}
+.q .d{grid-column:1/-1;font-size:.82rem;color:var(--muted)}
+
+.notice{border:1px solid var(--line);border-left:4px solid var(--warn);background:var(--panel);border-radius:8px;padding:12px 14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.btn{font:700 .85rem var(--display);border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);padding:7px 12px;border-radius:6px;cursor:pointer}
+.btn.ghost{background:none;color:var(--accent)}
+
+/* Shift log */
+.feed{display:grid;gap:12px}
+.post{border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:10px;background:var(--panel)}
+.post .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.post ul{margin:0;padding-left:18px;display:grid;gap:2px}
+
+/* Reports */
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.filters label{display:grid;gap:4px;font:600 .72rem var(--display);color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+select,input[type=date]{font:inherit;font-size:.9rem;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{font:600 .82rem var(--display);border:0;background:var(--panel);color:var(--muted);padding:7px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.tablewrap{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+th{text-align:left;font:600 .7rem var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);padding:8px;white-space:nowrap}
+td{border-bottom:1px solid var(--line);padding:8px;white-space:nowrap}
+td.r,th.r{text-align:right}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px}
+.mgroup{display:grid;gap:0;align-content:start}
+.mgroup h3{padding-bottom:6px;border-bottom:2px solid var(--accent);margin-bottom:2px}
+.mgroup div{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.9rem}
+.mgroup b{font:500 .88rem var(--mono);white-space:nowrap}
+.delta{font:600 .75rem var(--display);margin-left:6px}
+.delta.up{color:var(--ok)} .delta.down{color:var(--bad)}
+svg text{fill:var(--muted);font:11px var(--body)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.84rem;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+
+/* Help */
+.timeline{display:grid;gap:6px}
+.trow{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:center;font-size:.9rem}
+.trow .t{font-family:var(--mono);font-size:.84rem;color:var(--muted)}
+.sig{font-family:var(--mono);font-size:.84rem}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="title">
+      <h1>MNL Tier 1 Ops Board</h1>
+      <p class="muted small" id="clock">Manila time</p>
+    </div>
+    <div class="status">
+      <span class="chip" id="hs-chip"><span class="dot"></span><span id="hs-text">Connecting to HubSpot</span></span>
+      <span class="chip" id="db-chip"><span class="dot"></span><span id="db-text">Loading shift data</span></span>
+    </div>
+  </header>
+
+  <div id="hs-notice" class="notice" hidden>
+    <span id="hs-notice-text"></span>
+    <button class="btn" id="hs-allow" type="button" hidden>Allow HubSpot</button>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="live" id="tab-live">Live</button>
+    <button role="tab" aria-selected="false" data-tab="log" id="tab-log">Shift log</button>
+    <button role="tab" aria-selected="false" data-tab="reports" id="tab-reports">Reports</button>
+    <button role="tab" aria-selected="false" data-tab="how" id="tab-how">How it works</button>
+  </nav>
+
+  <!-- LIVE -->
+  <section id="live" class="grid">
+    <div class="ribbon" id="ribbon"></div>
+    <div class="strip" id="strip"></div>
+    <div class="grid two">
+      <div class="panel">
+        <div class="panel-head"><h2>Waiting for someone</h2><span class="muted small">Unassigned, live from HubSpot</span></div>
+        <div class="queues" id="queues"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Latest shift set-up</h2><span class="muted small" id="latest-when"></span></div>
+        <div id="latest"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Agents today</h2><span class="muted small">Closed today against daily ticket target. Open = tickets they hold now.</span></div>
+      <div class="grid" id="board"></div>
+    </div>
+  </section>
+
+  <!-- SHIFT LOG -->
+  <section id="log" class="grid" hidden>
+    <div class="panel">
+      <div class="panel-head"><h2>Shift set-ups</h2><span class="muted small">Written 30 minutes into each shift. Newest first.</span></div>
+      <div class="feed" id="feed"></div>
+    </div>
+  </section>
+
+  <!-- REPORTS -->
+  <section id="reports" class="grid" hidden>
+    <div class="panel">
+      <div class="filters">
+        <div class="seg" role="group" aria-label="Period">
+          <button type="button" data-period="day" aria-pressed="true">Daily</button>
+          <button type="button" data-period="week" aria-pressed="false">Weekly</button>
+          <button type="button" data-period="month" aria-pressed="false">Monthly</button>
+        </div>
+        <label>From<input type="date" id="f-from"></label>
+        <label>To<input type="date" id="f-to"></label>
+        <label>Shift<select id="f-shift"><option value="">All shifts</option><option>Morning</option><option>Swing</option><option>Mid</option><option>Night</option></select></label>
+        <label>Store<select id="f-store"><option value="">Both stores</option><option>NZ/AU</option><option>US/CA</option></select></label>
+        <label>Agent<select id="f-agent"><option value="">All agents</option></select></label>
+      </div>
+      <p class="small muted" id="rep-source"></p>
+    </div>
+    <div class="strip" id="rep-kpis"></div>
+    <div class="grid two">
+      <div class="panel">
+        <div class="panel-head"><h2>Tickets closed vs target</h2>
+          <div class="legend"><span style="--c:var(--accent)">Closed</span><span style="--c:var(--muted)">Target</span></div></div>
+        <div id="chart"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Missed call rate</h2>
+          <div class="legend"><span style="--c:var(--accent)">T1</span><span style="--c:var(--warn)">TA (6am to 2pm)</span></div></div>
+        <div id="chart2"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Calls, tickets, chats and tasks</h2><span class="muted small" id="cmp-note"></span></div>
+      <div class="metrics" id="metrics"></div>
+    </div>
+    <div class="panel">
+      <h2>Ticket productivity by agent</h2>
+      <p class="muted small">Assigned = given to them. Actioned = they replied or moved it. Closed = finished. Each counted on its own.</p>
+      <div class="tablewrap"><table id="prod"></table></div>
+    </div>
+    <div class="panel">
+      <h2>Task monitoring</h2>
+      <div class="tablewrap"><table id="tasks"></table></div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section id="how" class="grid" hidden>
+    <div class="grid two">
+      <div class="panel">
+        <h2>What updates when</h2>
+        <div class="timeline">
+          <div class="trow"><span class="t">Every 3 min</span><span><span class="pill ok">Live</span> Open tickets, closed today, unassigned queues, straight from HubSpot while this page is open</span></div>
+          <div class="trow"><span class="t">06:30</span><span><span class="pill acc">Set-up</span> Morning shift top-up</span></div>
+          <div class="trow"><span class="t">10:30</span><span><span class="pill acc">Set-up</span> Swing shift top-up</span></div>
+          <div class="trow"><span class="t">14:30</span><span><span class="pill acc">Set-up</span> Mid shift top-up</span></div>
+          <div class="trow"><span class="t">22:30</span><span><span class="pill acc">Set-up</span> Night shift top-up (US/CA)</span></div>
+          <div class="trow"><span class="t">06:10</span><span><span class="pill waitp">Report</span> Night shift wrap</span></div>
+          <div class="trow"><span class="t">14:10</span><span><span class="pill waitp">Report</span> Morning shift wrap</span></div>
+          <div class="trow"><span class="t">18:10</span><span><span class="pill waitp">Report</span> Swing shift wrap</span></div>
+          <div class="trow"><span class="t">22:10</span><span><span class="pill waitp">Report</span> Mid shift wrap</span></div>
+          <div class="trow"><span class="t">Mon / 1st</span><span><span class="pill waitp">Report</span> Weekly and monthly views build from the daily wraps</span></div>
+        </div>
+        <p class="small muted">Set-ups and wraps appear on this page the moment they finish. Nothing goes to Slack.</p>
+      </div>
+      <div class="panel">
+        <h2>Daily Signal in HubSpot</h2>
+        <p class="muted small">Agents sort their task view by Daily Signal and work from 001 down. Same format as the MEL and Tier 2 teams.</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Daily Signal</th><th>Example task</th></tr></thead>
+          <tbody>
+            <tr><td class="sig"><span class="pill bad">001 - Urgent</span></td><td>On tour room change</td></tr>
+            <tr><td class="sig"><span class="pill warn">002 - High</span></td><td>Callback request</td></tr>
+            <tr><td class="sig"><span class="pill ok">003 - Medium</span></td><td>Please chase balance</td></tr>
+            <tr><td class="sig"><span class="pill acc">004 - Low</span></td><td>Naming list confirmation</td></tr>
+            <tr><td class="sig"><span class="pill waitp">005 - Waiting</span></td><td>Enquiry Pending - Operations</td></tr>
+          </tbody></table></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const MNL=8*3600e3; // Manila is UTC+8 all year
+const mnlNow=()=>new Date(Date.now()+MNL);
+const mnlISO=d=>d.toISOString().slice(0,10);
+const todayISO=()=>mnlISO(mnlNow());
+const fmtTime=ms=>{const d=new Date(ms+MNL);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")};
+const daysAgo=iso=>{if(!iso)return 0;return Math.max(0,Math.floor((Date.now()-Date.parse(iso))/864e5))};
+
+/* ---------- Team (fallback until the store's config/team arrives) ---------- */
+const SHIFTS=[{key:"Morning",start:6,label:"06:00 to 14:00"},{key:"Swing",start:10,label:"10:00 to 18:00"},{key:"Mid",start:14,label:"14:00 to 22:00"},{key:"Night",start:22,label:"22:00 to 06:00"}];
+let TEAM=[
+ ["79945403","Ella","Morning","NZ/AU",5,20],["217656597","Jastine","Morning","NZ/AU",5,"Cruise"],["1041973559","Kesha","Morning","NZ/AU",5,"Cruise"],
+ ["94168406","Kyle","Morning","NZ/AU",5,null],["97466742","Karl","Morning","NZ/AU",5,null],["86280388","Kate","Morning","NZ/AU",5,null],
+ ["83925665","Gyzl","Morning","NZ/AU",5,null],["79945122","Erica","Morning","NZ/AU",5,null],["1615624257","Melissa","Morning","NZ/AU",5,null],
+ ["79707273","Monico","Morning","NZ/AU",5,null],["1062675376","Maria","Morning","NZ/AU",5,null],
+ ["217656601","Gia","Swing","NZ/AU",15,30],["79945090","Gretchen","Swing","NZ/AU",15,null],
+ ["708753665","Patricia","Mid","NZ/AU",25,null],["80154276","Honey","Mid","NZ/AU",25,null],["79945168","Kim","Mid","NZ/AU",25,null],
+ ["761394559","Kayla","Night","US/CA",30,5],["82811021","Adelle","Night","US/CA",30,5],["76981964","Vina","Night","US/CA",30,5]
+].map(a=>({id:a[0],name:a[1],shift:a[2],store:a[3],ticketTarget:a[4],taskTarget:a[5]}));
+let TODAY=null; // {date, in:[ids]} from the store
+
+/* ---------- Live state ---------- */
+const live={open:null,closed:null,unTickets:null,qAll:null,qCb:null,qCruise:null,tasks:null,at:null};
+
+function currentShift(){const h=mnlNow().getUTCHours();if(h>=22||h<6)return"Night";if(h>=14)return"Mid";if(h>=10)return"Swing";return"Morning"}
+function isIn(a){return TODAY&&TODAY.date===todayISO()&&Array.isArray(TODAY.in)?TODAY.in.includes(a.id):null}
+
+function renderClock(){const d=mnlNow();$("clock").textContent="Manila "+d.toISOString().slice(11,16)+", "+d.toUTCString().slice(0,11)+" · "+currentShift()+" shift on";}
+function renderRibbon(){
+  const cur=currentShift(),h=mnlNow().getUTCHours();
+  $("ribbon").innerHTML=SHIFTS.map(s=>{
+    const people=TEAM.filter(a=>a.shift===s.key);const inn=people.filter(a=>isIn(a)!==false).length;
+    return `<div class="lane${s.key===cur?" now":""}"><b>${s.key}</b><span>${s.label}</span><span>${TODAY&&TODAY.date===todayISO()?inn+" of "+people.length+" in":people.length+" rostered"}</span></div>`}).join("");
+}
+
+function countBy(results,field){const m={};(results||[]).forEach(r=>{const k=r.properties&&r.properties[field];if(k)m[k]=(m[k]||0)+1});return m}
+const notMiles=r=>!String((r.properties||{}).hs_ticket_category||"").split(";").includes("Automated Response");
+
+function renderLive(){
+  const openBy=live.open?countBy(live.open.filter(notMiles),"hubspot_owner_id"):null;
+  const closedBy=live.closed?countBy(live.closed,"hubspot_owner_id"):null;
+  const tasksBy=live.tasks?countBy(live.tasks,"hubspot_owner_id"):null;
+  const overdueBy={};(live.tasks||[]).forEach(r=>{const p=r.properties||{};if(p.hs_timestamp&&Date.parse(p.hs_timestamp)<Date.now()){overdueBy[p.hubspot_owner_id]=(overdueBy[p.hubspot_owner_id]||0)+1}});
+  const working=TEAM.filter(a=>isIn(a)!==false);
+  const target=working.reduce((s,a)=>s+(+a.ticketTarget||0),0);
+  const closed=closedBy?Object.values(closedBy).reduce((a,b)=>a+b,0):null;
+  const open=openBy?Object.values(openBy).reduce((a,b)=>a+b,0):null;
+  const un=live.unTickets?live.unTickets.filter(notMiles):null;
+  const urgent=un?un.filter(r=>{const p=r.properties||{};return p.hs_ticket_priority==="URGENT"||/On tour|Ops Urgent Only/.test(p.hs_ticket_category||"")}).length:null;
+  const oldest=un&&un.length?Math.max(...un.map(r=>daysAgo(r.properties.createdate))):0;
+  const pctv=closed!=null&&target?Math.round(100*closed/target):null;
+  const dash=v=>v==null?"…":v;
+  $("strip").innerHTML=[
+    `<div class="stat"><span class="label">Closed today</span><span class="val">${dash(closed)}</span><span class="sub">of ${target} daily target${TODAY&&TODAY.date===todayISO()?"":" (whole team)"}</span><div class="meter"><i style="width:${Math.min(100,pctv||0)}%"></i></div></div>`,
+    `<div class="stat"><span class="label">Open with agents</span><span class="val">${dash(open)}</span><span class="sub">tickets held right now</span></div>`,
+    `<div class="stat${un&&un.length>15?" alert":""}"><span class="label">Unassigned tickets</span><span class="val">${un?un.length:"…"}</span><span class="sub">${un?(un.length?"oldest "+oldest+" days":"queue is clear"):"loading"}</span></div>`,
+    `<div class="stat${urgent?" alert":""}"><span class="label">Urgent unassigned</span><span class="val">${dash(urgent)}</span><span class="sub">on tour or marked urgent</span></div>`,
+    `<div class="stat"><span class="label">Open T1 tasks</span><span class="val">${live.tasks?live.tasks.length:"…"}</span><span class="sub">${live.tasks?Object.values(overdueBy).reduce((a,b)=>a+b,0)+" past due":"held by agents"}</span></div>`
+  ].join("");
+
+  const q=(name,obj,desc)=>`<div class="q"><span>${name}</span><span class="n">${obj?obj.total:"…"}</span><span class="d">${desc(obj)}</span></div>`;
+  $("queues").innerHTML=
+    q("Support tickets",un?{total:un.length}:null,()=>un?(urgent?urgent+" urgent, ":"")+(un.length?"oldest open "+oldest+" days":"nothing waiting"):"loading")+
+    q("MNL CS, all tasks",live.qAll,o=>o?"general task queue":"loading")+
+    q("Cruise CS 2026",live.qCruise,o=>o?(o.total?"for Jastine and Kesha":"empty, which is normal"):"loading")+
+    q("Call backs",live.qCb,o=>o?"report only for now":"loading");
+
+  const cur=currentShift();
+  $("board").innerHTML=SHIFTS.map(s=>{
+    const people=TEAM.filter(a=>a.shift===s.key);
+    return `<div class="shiftgroup"><h3>${s.key} <span class="muted small">${s.label}${s.key===cur?" · on now":""}</span></h3><div class="cards">`+
+    people.map(a=>{
+      const inn=isIn(a);const c=closedBy?(closedBy[a.id]||0):null;const o=openBy?(openBy[a.id]||0):null;const t=+a.ticketTarget||0;
+      const p=c!=null&&t?Math.round(100*c/t):0;
+      const state=inn===false?`<span class="pill waitp">Off</span>`:c==null?`<span class="pill acc">…</span>`:p>=100?`<span class="pill ok">At target</span>`:`<span class="pill ${p>=60?"warn":"bad"}">${p}%</span>`;
+      const tk=a.taskTarget?`<span><b>${tasksBy?(tasksBy[a.id]||0):"…"}</b>tasks${overdueBy[a.id]?`, <span style="color:var(--bad)">${overdueBy[a.id]} late</span>`:""}</span>`:"";
+      return `<div class="card${inn===false?" offduty":""}"><div class="row"><span class="name">${esc(a.name)}</span>${state}</div>
+        <div class="bar${p>=100?" ok":""}"><i style="width:${Math.min(100,p)}%"></i></div>
+        <div class="figs"><span><b>${c==null?"…":c}</b>/ ${t} closed</span><span><b>${o==null?"…":o}</b>open</span>${tk}</div></div>`}).join("")+`</div></div>`}).join("");
+  renderRibbon();
+}
+
+/* ---------- HubSpot (live) ---------- */
+const HS="HubSpot", TOOL="search_crm_objects";
+const insights={userIntent:"Live Tier 1 ops board counts",satisfaction:"NEUTRAL"};
+const OPEN_STATUSES=["NOT_STARTED","IN_PROGRESS","WAITING","DEFERRED"];
+let mcp=null; const unsubs=[];
+function setHsChip(cls,text){const c=$("hs-chip");c.className="chip "+cls;$("hs-text").textContent=text}
+function hsNotice(text,allow){$("hs-notice").hidden=!text;$("hs-notice-text").textContent=text||"";$("hs-allow").hidden=!allow}
+
+function handleHsError(e){
+  const code=e&&e.code;
+  if(code==="server_not_connected"||code==="selection_required"){setHsChip("off","HubSpot not connected");hsNotice("Add or pick the HubSpot connector in claude.ai Settings, Connectors, to see live numbers.",false);clearLive();}
+  else if(code==="needs_reauth"){setHsChip("off","HubSpot needs reconnecting");hsNotice("Reconnect HubSpot in claude.ai Settings, Connectors.",false);clearLive();}
+  else if(code==="approval_required"||code==="not_in_manifest"||code==="consent_required"){setHsChip("off","HubSpot not allowed");hsNotice("This page needs your OK to read HubSpot for the live numbers.",true);clearLive();}
+  else if(code==="blocked_by_policy"){setHsChip("off","HubSpot blocked");hsNotice("Your organisation's policy blocks HubSpot here.",false);clearLive();}
+  else if(code==="not_granted"||code==="capability_disabled"||code==="capability_removed"){setHsChip("off","Live data off in this view");}
+  else {setHsChip("stale",live.at?"Live data may be out of date":"HubSpot not answering");}
+}
+function clearLive(){Object.keys(live).forEach(k=>live[k]=null);renderLive()}
+
+async function fetchRest(base,first){
+  let all=(first.results||[]).slice();let total=first.total||all.length;let offset=first.offset;let guard=0;
+  while(all.length<total&&offset!=null&&guard<10){guard++;
+    const r=await mcp.callTool(HS,TOOL,Object.assign({},base,{offset}),{cache:{staleTime:60000,gcTime:300000}});
+    const p=r.payload||{};all=all.concat(p.results||[]);offset=p.offset;if(!(p.results||[]).length)break;}
+  return all;
+}
+function watchSearch(key,base,full){
+  const u=mcp.watchTool(HS,TOOL,base,async ev=>{
+    if(ev.type==="error"){handleHsError(ev.error);return}
+    const p=ev.result.payload;if(!p||typeof p!=="object"){return}
+    try{live[key]=full?await fetchRest(base,p):{total:p.total||0};}catch(e){handleHsError(e);return}
+    live.at=ev.result.cache?ev.result.cache.storedAt:Date.now();
+    hsNotice("",false);setHsChip("live","Live · HubSpot "+fmtTime(live.at));renderLive();
+  },{cache:{staleTime:60000,gcTime:600000},refetchInterval:180000});
+  unsubs.push(u);
+}
+function startLive(){
+  unsubs.splice(0).forEach(u=>{try{u()}catch(e){}});
+  const ids=TEAM.map(a=>a.id);
+  const dayStartUTC=new Date(Date.parse(todayISO()+"T00:00:00Z")-MNL).toISOString();
+  watchSearch("open",{objectType:"TICKET",limit:200,properties:["hubspot_owner_id","hs_ticket_category"],chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_pipeline",operator:"EQ",value:"0"},{propertyName:"closed_date",operator:"NOT_HAS_PROPERTY"},{propertyName:"hubspot_owner_id",operator:"IN",values:ids}]}]},true);
+  watchSearch("closed",{objectType:"TICKET",limit:200,properties:["hubspot_owner_id"],chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_pipeline",operator:"EQ",value:"0"},{propertyName:"closed_date",operator:"GTE",value:dayStartUTC},{propertyName:"hubspot_owner_id",operator:"IN",values:ids}]}]},true);
+  watchSearch("unTickets",{objectType:"TICKET",limit:200,properties:["createdate","hs_ticket_priority","hs_ticket_category"],chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_pipeline",operator:"EQ",value:"0"},{propertyName:"closed_date",operator:"NOT_HAS_PROPERTY"},{propertyName:"hubspot_owner_id",operator:"NOT_HAS_PROPERTY"}]}]},true);
+  const qf=id=>({objectType:"TASK",limit:1,properties:["hs_createdate"],chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_queue_membership_ids",operator:"CONTAINS_TOKEN",value:id},{propertyName:"hs_task_status",operator:"IN",values:OPEN_STATUSES},{propertyName:"hubspot_owner_id",operator:"NOT_HAS_PROPERTY"}]}]});
+  watchSearch("qAll",qf("4046613"),false);watchSearch("qCb",qf("6411820"),false);watchSearch("qCruise",qf("12867798"),false);
+  const taskIds=TEAM.filter(a=>a.taskTarget).map(a=>a.id);
+  watchSearch("tasks",{objectType:"TASK",limit:200,properties:["hubspot_owner_id","hs_timestamp"],chatInsights:insights,
+    filterGroups:[{filters:[{propertyName:"hs_task_status",operator:"IN",values:OPEN_STATUSES},{propertyName:"hubspot_owner_id",operator:"IN",values:taskIds}]}]},true);
+}
+$("hs-allow").addEventListener("click",async()=>{
+  try{await mcp.callTool(HS,TOOL,{objectType:"TASK",limit:1,properties:["hs_createdate"],chatInsights:insights,filterGroups:[{filters:[{propertyName:"hs_queue_membership_ids",operator:"CONTAINS_TOKEN",value:"4046613"}]}]});hsNotice("",false);startLive();}
+  catch(e){handleHsError(e)}
+});
+
+/* ---------- Store (shift set-ups + daily wraps, live as runs land) ---------- */
+let SHIFTDOCS=[],DAILY=[],usingSample={log:true,rep:true};
+function setDbChip(cls,text){$("db-chip").className="chip "+cls;$("db-text").textContent=text}
+
+function postHTML(s){
+  const ag=(s.agents||[]);
+  const tk=ag.filter(a=>a.ticketTarget).map(a=>{const now=(a.ticketsHad||0)+(a.ticketsGot||0);
+    return `<li><b>${esc(a.name)}</b>: had ${a.ticketsHad||0}, got ${a.ticketsGot||0}, ${now>=a.ticketTarget?"now at target of "+a.ticketTarget:"now "+now+" of "+a.ticketTarget}${a.note?" ("+esc(a.note)+")":""}.</li>`}).join("");
+  const ts=ag.filter(a=>a.taskTarget).map(a=>`<li><b>${esc(a.name)}</b>: ${a.taskTarget==="Cruise"?(a.tasksGot||0)+" cruise tasks":"had "+(a.tasksHad||0)+", got "+(a.tasksGot||0)+", target "+a.taskTarget}.</li>`).join("");
+  const fl=(s.flags||[]).map(f=>`<li>${esc(f)}</li>`).join("");
+  return `<div class="post"><div class="meta"><b>${esc(s.shift)} shift</b><span class="muted small">${esc(s.date)}${s.runAt?" · "+fmtTime(s.runAt):""}</span>${s.mode==="PREVIEW"?`<span class="pill warn">Preview, nothing assigned</span>`:`<span class="pill ok">Assigned</span>`}${s.sample?`<span class="sample">Example</span>`:""}</div>
+   ${tk?`<div><h3>Tickets</h3><ul>${tk}</ul></div>`:""}${ts?`<div><h3>Tasks</h3><ul>${ts}</ul></div>`:""}
+   ${fl?`<div><h3>Worth a look</h3><ul>${fl}</ul></div>`:`<p class="muted small">Nothing else to flag.</p>`}</div>`;
+}
+function renderLog(){
+  const docs=SHIFTDOCS.length?SHIFTDOCS:[SAMPLE_SHIFT];usingSample.log=!SHIFTDOCS.length;
+  $("feed").innerHTML=(usingSample.log?`<p class="small muted">No shift set-ups yet. The first one lands 30 minutes after the next shift starts, once scheduling is switched on. Below is an example.</p>`:"")+docs.slice(0,30).map(postHTML).join("");
+  const latest=docs[0];$("latest").innerHTML=postHTML(latest).replace('class="post"','class="post" style="border:0;padding:0"');
+  $("latest-when").textContent=usingSample.log?"example":(latest.date+" · "+latest.shift);
+}
+const SAMPLE_SHIFT={sample:true,date:"example",shift:"Morning",mode:"PREVIEW",agents:[
+  {name:"Ella",ticketTarget:5,ticketsHad:2,ticketsGot:3,taskTarget:20,tasksHad:12,tasksGot:8},
+  {name:"Kyle",ticketTarget:5,ticketsHad:5,ticketsGot:0},{name:"Kate",ticketTarget:5,ticketsHad:1,ticketsGot:2,note:"ran out of tickets"},
+  {name:"Jastine",ticketTarget:5,ticketsHad:3,ticketsGot:2,taskTarget:"Cruise",tasksGot:4}],
+  flags:["Kesha is on leave, so Jastine has all the cruise tasks today.","14 tickets are still waiting, oldest open 9 days.","3 tickets couldn't be placed by store."]};
+
+/* Example report rows, used only until the first daily wrap lands. Clearly labelled. */
+function sampleDaily(){
+  let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646};
+  const out=[];const end=Date.parse(todayISO()+"T00:00:00Z");
+  for(let i=41;i>=1;i--){const date=new Date(end-i*864e5).toISOString().slice(0,10);
+    SHIFTS.forEach(s=>{const ag=TEAM.filter(a=>a.shift===s.key).filter(()=>rnd()>.2).map(a=>{const t=+a.ticketTarget;const pend=Math.round(t*.5*rnd());const asg=Math.max(0,t-pend);const clo=Math.round(t*(.55+.55*rnd()));
+      const tt=typeof a.taskTarget==="number"?a.taskTarget:a.taskTarget?4:0;
+      return{id:a.id,name:a.name,store:a.store,target:t,pendingStart:pend,assigned:asg,actioned:Math.min(pend+asg+2,clo+Math.round(t*.3*rnd())),closed:clo,remaining:Math.max(0,pend+asg-clo),
+        taskTarget:a.taskTarget,tasksAssigned:tt?Math.round(tt*(.4+.5*rnd())):0,tasksDone:tt?Math.round(tt*(.5+.5*rnd())):0,tasksOpen:tt?Math.round(tt*.6*rnd()):0,tasksOverdue:tt?Math.round(3*rnd()):0,oldestTaskDays:tt?1+Math.round(8*rnd()):0}});
+      const f=s.key==="Morning"?1:.35;
+      out.push({sample:true,date,shift:s.key,agents:ag,metrics:{t1In:Math.round(180*f*(.8+.4*rnd())),t1Out:Math.round(40*f*(.8+.4*rnd())),t1Mcr:+(4+5*rnd()).toFixed(1),taIn:s.key==="Morning"?Math.round(37*(.8+.4*rnd())):0,taOut:s.key==="Morning"?Math.round(9*(.8+.4*rnd())):0,taMcr:s.key==="Morning"?+(2+5*rnd()).toFixed(1):null,
+        ticketsOpening:Math.round(200+30*rnd()),ticketsAged:Math.round(10+15*rnd()),ticketTatH:+(2+3*rnd()).toFixed(1),ticketCloseH:+(30+30*rnd()).toFixed(0),chatsClosed:Math.round(44*f*(.8+.4*rnd())),fcr:Math.round(75+15*rnd()),crtSec:Math.round(70+60*rnd()),
+        t1TasksOpening:Math.round(90+20*rnd()),t1TasksClosed:Math.round(38*f*(.8+.4*rnd())),t2TasksOpening:Math.round(130+20*rnd()),t2TasksClosed:Math.round(22*f*(.8+.4*rnd())),t1TatD:+(1+1*rnd()).toFixed(1),t2TatD:+(2.5+1.5*rnd()).toFixed(1),pendingEnquiry:Math.round(8+6*rnd()),t360:null,tasksRemaining:Math.round(60+20*rnd())}})})}
+  return out;
+}
+let SAMPLE_DAILY=null;
+
+/* ---------- Reports ---------- */
+let PERIOD="day";
+function weekKey(iso){const d=new Date(iso+"T00:00:00Z");const dow=(d.getUTCDay()+6)%7;return new Date(d-dow*864e5).toISOString().slice(0,10)}
+function bucketOf(iso){return PERIOD==="day"?iso:PERIOD==="week"?weekKey(iso):iso.slice(0,7)}
+function bucketLabel(k){if(PERIOD==="month"){const d=new Date(k+"-01T00:00:00Z");return d.toUTCString().slice(8,16)}const d=new Date(k+"T00:00:00Z");return (PERIOD==="week"?"wk ":"")+d.getUTCDate()+" "+d.toUTCString().slice(8,11)}
+function renderReports(){
+  const rows=DAILY.length?DAILY:(SAMPLE_DAILY=SAMPLE_DAILY||sampleDaily());usingSample.rep=!DAILY.length;
+  $("rep-source").innerHTML=usingSample.rep?`<span class="sample">Example numbers</span> No shift wraps yet. Real numbers replace these after the first wrap.`:`From ${DAILY.length} shift wraps. Updates as each wrap lands.`;
+  const f={from:$("f-from").value,to:$("f-to").value,shift:$("f-shift").value,store:$("f-store").value,agent:$("f-agent").value};
+  const inRange=r=>(!f.from||r.date>=f.from)&&(!f.to||r.date<=f.to)&&(!f.shift||r.shift===f.shift);
+  const sel=rows.filter(inRange);
+  const agentRows=[];sel.forEach(r=>(r.agents||[]).forEach(a=>{if((!f.store||a.store===f.store)&&(!f.agent||a.name===f.agent))agentRows.push(Object.assign({date:r.date,shift:r.shift},a))}));
+  const S=(arr,k)=>arr.reduce((s,x)=>s+(+x[k]||0),0);
+  const T=S(agentRows,"target"),C=S(agentRows,"closed");
+  // previous period of equal length for comparison
+  let prevC=null,prevT=null;if(f.from&&f.to){const len=(Date.parse(f.to)-Date.parse(f.from))/864e5+1;const pf=new Date(Date.parse(f.from)-len*864e5).toISOString().slice(0,10),pt=new Date(Date.parse(f.from)-864e5).toISOString().slice(0,10);
+    const pr=[];rows.filter(r=>r.date>=pf&&r.date<=pt&&(!f.shift||r.shift===f.shift)).forEach(r=>(r.agents||[]).forEach(a=>{if((!f.store||a.store===f.store)&&(!f.agent||a.name===f.agent))pr.push(a)}));if(pr.length){prevC=S(pr,"closed");prevT=S(pr,"target")}}
+  const pc=T?Math.round(100*C/T):0;const ppc=prevT?Math.round(100*prevC/prevT):null;
+  const delta=(v,p,unit)=>p==null?"":`<span class="delta ${v>=p?"up":"down"}">${v>=p?"▲":"▼"} ${Math.abs(v-p)}${unit||""}</span>`;
+  $("rep-kpis").innerHTML=[
+    ["Target achieved",pc+"%"+delta(pc,ppc,"pts"),C+" closed of "+T],["Assigned",S(agentRows,"assigned"),"tickets given out"],["Actioned",S(agentRows,"actioned"),"tickets worked"],
+    ["Closed",C+delta(C,prevC),"tickets finished"],["Pending at start",S(agentRows,"pendingStart"),"before top-ups"]
+  ].map(k=>`<div class="stat"><span class="label">${k[0]}</span><span class="val">${k[1]}</span><span class="sub">${k[2]}</span></div>`).join("");
+  $("cmp-note").textContent=ppc!=null?"Arrows compare with the same length of time just before":"";
+
+  // chart 1: closed vs target by bucket
+  const B={};agentRows.forEach(a=>{const k=bucketOf(a.date);(B[k]=B[k]||{c:0,t:0});B[k].c+=+a.closed||0;B[k].t+=+a.target||0});
+  $("chart").innerHTML=lineChart(Object.keys(B).sort(),[{vals:k=>B[k].t,stroke:"var(--muted)",dash:true},{vals:k=>B[k].c,stroke:"var(--accent)",fill:true}],"");
+  // chart 2: MCR by bucket (average of shift values)
+  const M={};sel.forEach(r=>{const k=bucketOf(r.date);const m=r.metrics||{};(M[k]=M[k]||{a:0,an:0,b:0,bn:0});if(m.t1Mcr!=null){M[k].a+=+m.t1Mcr;M[k].an++}if(m.taMcr!=null){M[k].b+=+m.taMcr;M[k].bn++}});
+  $("chart2").innerHTML=lineChart(Object.keys(M).sort(),[{vals:k=>M[k].an?M[k].a/M[k].an:0,stroke:"var(--accent)"},{vals:k=>M[k].bn?M[k].b/M[k].bn:0,stroke:"var(--warn)"}],"%");
+
+  // metrics
+  const m=k=>sel.reduce((s,r)=>s+(+((r.metrics||{})[k])||0),0);
+  const avg=k=>{const v=sel.map(r=>(r.metrics||{})[k]).filter(x=>x!=null&&x!=="");return v.length?(v.reduce((a,b)=>a+ +b,0)/v.length):null};
+  const firstOf=k=>{const v=sel.filter(r=>(r.metrics||{})[k]!=null);return v.length?v[0].metrics[k]:null};
+  const lastOf=k=>{const v=sel.filter(r=>(r.metrics||{})[k]!=null);return v.length?v[v.length-1].metrics[k]:null};
+  const fx=(v,d,u)=>v==null?"n/a":(+v).toFixed(d)+(u||"");
+  const groups=[
+    ["Calls",[["Inbound, T1",m("t1In")],["Outbound, T1",m("t1Out")],["Missed call rate, T1",fx(avg("t1Mcr"),1,"%")],["Inbound, TA",m("taIn")],["Outbound, TA",m("taOut")],["Missed call rate, TA (6am to 2pm)",fx(avg("taMcr"),1,"%")]]],
+    ["Tickets",[["Opening tickets",firstOf("ticketsOpening")??"n/a"],["Aged tickets (now)",lastOf("ticketsAged")??"n/a"],["Closed per agent (avg)",agentRows.length?(C/new Set(agentRows.map(a=>a.name)).size).toFixed(1):"n/a"],["Avg first reply",fx(avg("ticketTatH"),1," h")],["Avg time to close",fx(avg("ticketCloseH")!=null?avg("ticketCloseH")/24:null,1," days")]]],
+    ["Chats",[["Closed chats",m("chatsClosed")],["First contact resolution",fx(avg("fcr"),0,"%")],["Chat response time",avg("crtSec")==null?"n/a":Math.floor(avg("crtSec")/60)+"m "+Math.round(avg("crtSec")%60)+"s"]]],
+    ["Tasks",[["Opening, T1",firstOf("t1TasksOpening")??"n/a"],["Closed, T1",m("t1TasksClosed")],["Opening, T2",firstOf("t2TasksOpening")??"n/a"],["Closed, T2",m("t2TasksClosed")],["360 tasks",lastOf("t360")??"queue to confirm"],["Avg turnaround, T1",fx(avg("t1TatD"),1," days")],["Avg turnaround, T2",fx(avg("t2TatD"),1," days")],["CS pending enquiries",lastOf("pendingEnquiry")??"n/a"],["Remaining tasks",lastOf("tasksRemaining")??"n/a"]]]
+  ];
+  $("metrics").innerHTML=groups.map(g=>`<div class="mgroup"><h3>${g[0]}</h3>${g[1].map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join("")}</div>`).join("");
+
+  // productivity
+  const by={};agentRows.forEach(a=>{const o=by[a.name]=by[a.name]||{name:a.name,shift:a.shift,store:a.store,d:0,target:0,pendingStart:0,assigned:0,actioned:0,closed:0,remaining:0,last:""};
+    o.d++;["target","pendingStart","assigned","actioned","closed"].forEach(k=>o[k]+=+a[k]||0);if(a.date>=o.last){o.last=a.date;o.remaining=+a.remaining||0}});
+  const list=Object.values(by).sort((a,b)=>(b.target?b.closed/b.target:0)-(a.target?a.closed/a.target:0));
+  const pill=p=>`<span class="pill ${p>=100?"ok":p>=70?"warn":"bad"}">${p}%</span>`;
+  $("prod").innerHTML=`<thead><tr><th>Agent</th><th>Shift</th><th>Store</th><th class="r">Days in</th><th class="r">Target</th><th class="r">Pending at start</th><th class="r">Assigned</th><th class="r">Actioned</th><th class="r">Closed</th><th class="r">Pending now</th><th>Achievement</th></tr></thead><tbody>`+
+    (list.map(a=>`<tr><td>${esc(a.name)}</td><td>${a.shift}</td><td>${a.store}</td><td class="r">${a.d}</td><td class="r">${a.target}</td><td class="r">${a.pendingStart}</td><td class="r">${a.assigned}</td><td class="r">${a.actioned}</td><td class="r">${a.closed}</td><td class="r">${a.remaining}</td><td>${pill(a.target?Math.round(100*a.closed/a.target):0)}</td></tr>`).join("")||`<tr><td colspan="11" class="muted">No one matches these filters.</td></tr>`)+"</tbody>";
+  const tb={};agentRows.filter(a=>a.taskTarget).forEach(a=>{const o=tb[a.name]=tb[a.name]||{name:a.name,t:a.taskTarget,as:0,dn:0,op:0,ov:0,age:0,last:""};o.as+=+a.tasksAssigned||0;o.dn+=+a.tasksDone||0;if(a.date>=o.last){o.last=a.date;o.op=+a.tasksOpen||0;o.ov=+a.tasksOverdue||0}o.age=Math.max(o.age,+a.oldestTaskDays||0)});
+  $("tasks").innerHTML=`<thead><tr><th>Agent</th><th>Task role</th><th class="r">Assigned</th><th class="r">Completed</th><th class="r">Open</th><th class="r">Overdue</th><th class="r">Oldest open</th></tr></thead><tbody>`+
+    (Object.values(tb).map(a=>`<tr><td>${esc(a.name)}</td><td>${a.t==="Cruise"?"Cruise queue":"Target "+a.t+" a day"}</td><td class="r">${a.as}</td><td class="r">${a.dn}</td><td class="r">${a.op}</td><td class="r">${a.ov?`<span class="pill bad">${a.ov}</span>`:"0"}</td><td class="r">${a.age} business days</td></tr>`).join("")||`<tr><td colspan="7" class="muted">No task owners match these filters.</td></tr>`)+"</tbody>";
+}
+function lineChart(keys,series,unit){
+  const W=540,H=210,pl=40,pb=26,pt=10,pr=12;
+  if(!keys.length)return`<p class="muted small">Nothing in this range.</p>`;
+  const max=Math.max(1,...keys.flatMap(k=>series.map(s=>s.vals(k))));
+  const step=Math.pow(10,Math.floor(Math.log10(max)));const nice=Math.ceil(max/step)*step;
+  const x=i=>pl+(keys.length>1?i*(W-pl-pr)/(keys.length-1):(W-pl-pr)/2),y=v=>pt+(H-pt-pb)*(1-v/nice);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">`;
+  for(let g=0;g<=4;g++){const v=nice*g/4;s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end">${+v.toFixed(1)}${unit}</text>`}
+  series.forEach(se=>{const pts=keys.map((k,i)=>`${x(i)},${y(se.vals(k))}`).join(" ");
+    if(se.fill)s+=`<polygon points="${x(0)},${y(0)} ${pts} ${x(keys.length-1)},${y(0)}" fill="var(--accent-soft)"/>`;
+    s+=`<polyline points="${pts}" fill="none" stroke="${se.stroke}" stroke-width="${se.dash?1.5:2.5}"${se.dash?' stroke-dasharray="4 4"':""}/>`;
+    if(!se.dash){const li=keys.length-1;s+=`<circle cx="${x(li)}" cy="${y(se.vals(keys[li]))}" r="4" fill="${se.stroke}"/>`}});
+  const every=Math.ceil(keys.length/8);keys.forEach((k,i)=>{if(i%every===0||i===keys.length-1)s+=`<text x="${x(i)}" y="${H-7}" text-anchor="middle">${bucketLabel(k)}</text>`});
+  return s+"</svg>";
+}
+function setDefaultRange(){
+  const t=Date.parse(todayISO()+"T00:00:00Z");const back=PERIOD==="day"?7:PERIOD==="week"?28:90;
+  $("f-to").value=new Date(t-864e5).toISOString().slice(0,10);$("f-from").value=new Date(t-back*864e5).toISOString().slice(0,10);
+}
+document.querySelectorAll(".seg button").forEach(b=>b.addEventListener("click",()=>{PERIOD=b.dataset.period;document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));setDefaultRange();renderReports()}));
+["f-from","f-to","f-shift","f-store","f-agent"].forEach(id=>$(id).addEventListener("change",renderReports));
+function fillAgents(){const fa=$("f-agent");const v=fa.value;fa.innerHTML=`<option value="">All agents</option>`+TEAM.map(a=>`<option>${esc(a.name)}</option>`).join("");fa.value=v}
+
+/* ---------- Tabs ---------- */
+const TABS=["live","log","reports","how"];
+const tabs=[...document.querySelectorAll("nav.tabs button")];
+function show(n){tabs.forEach(b=>{const on=b.dataset.tab===n;b.setAttribute("aria-selected",on);$(b.dataset.tab).hidden=!on})}
+tabs.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.tab);try{history.replaceState(null,"","#"+b.dataset.tab)}catch(e){}}));
+const h0=location.hash.slice(1);if(TABS.includes(h0))show(h0);
+window.addEventListener("hashchange",()=>{const n=location.hash.slice(1);if(TABS.includes(n))show(n)});
+
+/* ---------- Boot ---------- */
+fillAgents();setDefaultRange();renderClock();renderLive();renderLog();renderReports();
+setInterval(renderClock,30000);
+
+(async()=>{
+  const c=window.claude;
+  mcp=c&&c.use?await c.use("mcp"):null;
+  if(!mcp){setHsChip("off","Live data off in this view");hsNotice("Open this page in claude.ai to see live HubSpot numbers.",false);}
+  else startLive();
+})();
+
+(async()=>{
+  const c=window.claude;const db=c&&c.use?await c.use("db"):null;
+  if(!db){setDbChip("off","Shift data off in this view");return}
+  let answered=false;const timer=setTimeout(()=>{if(!answered)setDbChip("stale","Shift data can't be reached yet")},10000);
+  const ok=()=>{answered=true;clearTimeout(timer);setDbChip("live","Shift data live")};
+  const fail=e=>{answered=true;clearTimeout(timer);setDbChip("off","Shift data unavailable")};
+  db.doc("config/team").onSnapshot(s=>{if(!s.metadata.fromCache)ok();const d=s.exists&&s.data();if(d&&Array.isArray(d.agents)&&d.agents.length){TEAM=d.agents.map(a=>Object.assign({},a,{id:String(a.id)}));fillAgents();SAMPLE_DAILY=null;renderLive();renderReports();if(mcp)startLive()}},fail);
+  db.doc("config/today").onSnapshot(s=>{TODAY=s.exists?s.data():null;renderLive()},fail);
+  db.collection("shifts").orderBy("runAt","desc").limit(60).onSnapshot(s=>{if(!s.metadata.fromCache)ok();SHIFTDOCS=s.docs.map(d=>d.data());renderLog()},fail);
+  db.collection("daily").orderBy("date","asc").limit(1000).onSnapshot(s=>{if(!s.metadata.fromCache)ok();DAILY=s.docs.map(d=>d.data());renderReports()},fail);
+})();
+})();
+</script>

@@ -1,57 +1,49 @@
 # CS MNL Tier 1 automation
 
 Everything requested in the **CS Roster** sheet
-([link](https://docs.google.com/spreadsheets/d/1E8L74BmWHCaswazNv-yYUT85YB2_4xXZeSlDBc_1ZAE/edit?gid=1423572952)),
-built as three iv-skills playbooks that run as Cowork scheduled tasks.
+(https://docs.google.com/spreadsheets/d/1E8L74BmWHCaswazNv-yYUT85YB2_4xXZeSlDBc_1ZAE/edit?gid=1423572952).
 
-## What maps to what
+## Where things live
 
-| Sheet request | Playbook |
+| Piece | Where |
 |---|---|
-| Ticket Automation A: assign to daily target, minus pending, store routing, FIFO, skip leave | `iv-skills-cs-mnl-t1-shift-assignment` (Step 1) |
-| Task Automation A: assign by roster, fallback, no duplicates, keep history | `iv-skills-cs-mnl-t1-shift-assignment` (Steps 2-3) |
-| "Run the skill 30 minutes after each person's start time" | 4 runs: 06:30, 10:30, 14:30, 22:30 Manila |
-| Daily Signal (task running order) | `iv-skills-cs-mnl-t1-daily-signal` |
-| Ticket Automation B: TL productivity report | `iv-skills-cs-mnl-t1-reports` (productivity view) |
-| Task Monitoring Report | `iv-skills-cs-mnl-t1-reports` (task monitoring view) |
-| Report Requests tab: calls, tickets, chats, tasks; daily, weekly, monthly | `iv-skills-cs-mnl-t1-reports` |
+| Live board (TLs open this) | https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd |
+| Board source | `board/index.html` (this folder) |
+| Playbooks (source of truth) | IV skills broker: `iv-skills-cs-mnl-t1-shift-assignment`, `iv-skills-cs-mnl-t1-daily-signal`, `iv-skills-cs-mnl-t1-reports` |
 
-## Schedule (Manila time, no daylight saving)
+Edit the playbooks through the broker (`revise_iv_playbook`), not here.
 
-| Time | Runs |
+## What updates when
+
+- **Every 3 minutes, live from HubSpot** while the board is open: closed
+  today vs target, open tickets per agent, unassigned tickets and task
+  queues, open and overdue tasks.
+- **30 minutes after each shift starts** (06:30, 10:30, 14:30, 22:30
+  Manila): the shift top-up runs and its summary appears on the board.
+- **10 minutes after each shift ends**: the shift wrap (calls, tickets,
+  chats, tasks, per-agent productivity) appears on the board. Weekly and
+  monthly views build from these.
+- **No Slack.** Nothing posts anywhere else.
+
+## Board data store
+
+| Doc | Written by |
 |---|---|
-| 06:10 | Daily report, night shift |
-| 06:30 | Assignment + Daily Signal, morning shift |
-| 10:30 | Assignment + Daily Signal, swing shift |
-| 14:10 | Daily report, morning shift |
-| 14:30 | Assignment + Daily Signal, mid shift |
-| 18:10 | Daily report, swing shift |
-| 22:10 | Daily report, mid shift |
-| 22:30 | Assignment + Daily Signal, night shift |
-| Mon 05:00 | Weekly report |
-| 1st 05:00 | Monthly report |
+| `config/team` | Seeded from the Goal tab; refreshed by the shift assignment when targets change |
+| `config/today` | Shift assignment (who is IN today) |
+| `shifts/{date}_{shift}` | Shift assignment summary |
+| `daily/{date}_{shift}` | Reports (shift wrap) |
 
 ## Safety
 
-- The assignment starts in **PREVIEW**: it posts what it would assign,
-  writes nothing to HubSpot. Switch to LIVE after three good preview days.
-- Only `hubspot_owner_id` (assignment) and `daily_signal` /
-  `daily_signal_date` (running order) are ever written.
-- Never reassigns an owned ticket or task. Never assigns to anyone not
-  `IN` on the Attendance tab.
-
-## Set up
-
-1. Submit each `SKILL.md` to the iv-skills broker (`submit_iv_playbook`).
-2. Approve the preview, then create the Cowork scheduled tasks using the cron lines in each playbook.
-3. Review the first preview posts, then set the assignment to LIVE.
+- Assignment starts in **PREVIEW**: nothing is assigned in HubSpot until
+  Jess switches it to LIVE.
+- Only `hubspot_owner_id`, `daily_signal` and `daily_signal_date` are ever
+  written in HubSpot. Owned work is never reassigned.
 
 ## Open questions
 
-1. **Reports**: no Slack, one live dashboard only. Preview:
-   https://claude.ai/artifact/6i2JURcUyKT47ptZvfVQmd
-2. **360 task**: which queue is it?
-3. **Call Backs queue** (`6411820`): assign it too, or report only?
-4. **Chats**: confirm chats are HubSpot chat conversations.
-5. **Store routing**: tickets have no store field, so it is inferred from
-   the linked deal currency. A real `store` property would be more reliable.
+1. **360 task**: which queue?
+2. **Call Backs queue** (`6411820`): assign or report only?
+3. **Chats**: confirm HubSpot chat conversations are the source.
+4. **Store routing**: inferred from deal currency until a store field exists.
