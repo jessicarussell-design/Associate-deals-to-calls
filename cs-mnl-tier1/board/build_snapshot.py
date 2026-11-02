@@ -34,6 +34,7 @@ Missing inputs are fine: that part of the page shows "loading" or n/a.
 import glob
 import json
 import os
+import re
 import sys
 import time
 
@@ -97,13 +98,15 @@ def store_list(data_dir, name):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if len(args) != 2:
-        sys.exit(__doc__)
-    data_dir, out = args
+    argv = sys.argv[1:]
     tpl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
-    if "--template" in sys.argv:
-        tpl = sys.argv[sys.argv.index("--template") + 1]
+    if "--template" in argv:
+        i = argv.index("--template")
+        tpl = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
+    if len(argv) != 2:
+        sys.exit(__doc__)
+    data_dir, out = argv
 
     live = {}
     for name, key in LIVE_KEY.items():
@@ -125,17 +128,19 @@ def main():
     snap["daily"] = sorted(store_list(data_dir, "daily"), key=lambda d: (d.get("date", ""), d.get("shift", "")))
 
     html = open(tpl, encoding="utf-8").read()
-    marker = '<script id="snapshot" type="application/json"></script>'
-    if marker not in html:
-        sys.exit("Template has no empty snapshot block; use the unbaked board/index.html")
+    # Works on the unbaked Claude board or on a previously shared copy.
+    block = re.compile(r'<script id="snapshot" type="application/json">.*?</script>', re.S)
+    if not block.search(html):
+        sys.exit("Template has no snapshot block; use board/index.html or the shared page")
     payload = json.dumps(snap, separators=(",", ":")).replace("</", "<\\/")
-    html = html.replace(marker, '<script id="snapshot" type="application/json">' + payload + "</script>")
+    html = block.sub(lambda m: '<script id="snapshot" type="application/json">' + payload + "</script>", html, count=1)
     # The Claude viewer wraps the page in a document skeleton; IV Insights
     # serves the file as-is, so add the skeleton here.
-    html = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            '<style>body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>'
-            '</head><body>' + html + '</body></html>')
+    if not html.lstrip().lower().startswith("<!doctype"):
+      html = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+              '<meta name="viewport" content="width=device-width,initial-scale=1">'
+              '<style>body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>'
+              '</head><body>' + html + '</body></html>')
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)
     counts = {k: (len(v) if isinstance(v, list) else v.get("total")) for k, v in live.items()}
