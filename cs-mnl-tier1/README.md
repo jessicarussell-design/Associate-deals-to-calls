@@ -49,7 +49,7 @@ Edit the playbooks through the broker (`revise_iv_playbook`), not here.
 
 ## Open questions
 
-1. **360 task**: which queue?
+1. **360 task**: done, queue "360 - MNL CS" (6411821).
 2. **Call Backs queue** (`6411820`): assign or report only?
 3. **Chats**: confirm HubSpot chat conversations are the source.
 4. **Store routing**: inferred from deal currency until a store field exists.

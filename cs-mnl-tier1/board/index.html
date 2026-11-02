@@ -310,7 +310,7 @@ let TEAM=[
 let TODAY=null; // {date, in:[ids]} from the store
 
 /* ---------- Live state ---------- */
-const live={open:null,closed:null,unTickets:null,qAll:null,qCb:null,qCruise:null,tasks:null,openAll:null,doneAll:null,calls:null,emails:null,notes:null,at:null};
+const live={open:null,closed:null,unTickets:null,qAll:null,qCb:null,qCruise:null,q360:null,tasks:null,openAll:null,doneAll:null,calls:null,emails:null,notes:null,at:null};
 
 /* Signs of work: a call, email or note the agent logged since their shift started. */
 const SHIFT_HOUR={Morning:6,Swing:10,Mid:14,Night:22};
@@ -378,7 +378,8 @@ function renderLive(){
     q("Support tickets",un?{total:un.length}:null,()=>un?(urgent?urgent+" urgent, ":"")+(un.length?"oldest open "+oldest+" days":"nothing waiting"):"loading")+
     q("MNL CS, all tasks",live.qAll,o=>o?"general task queue":"loading")+
     q("Cruise CS 2026",live.qCruise,o=>o?(o.total?"for Jastine and Kesha":"empty, which is normal"):"loading")+
-    q("Call backs",live.qCb,o=>o?"report only for now":"loading");
+    q("Call backs",live.qCb,o=>o?"report only for now":"loading")+
+    q("360 - MNL CS",live.q360,o=>o?(o.total?"overdue payment chases":"empty"):"loading");
 
   const cur=currentShift();
   $("board").innerHTML=SHIFTS.map(s=>{
@@ -446,7 +447,7 @@ function startLive(){
     filterGroups:[{filters:[{propertyName:"hs_pipeline",operator:"EQ",value:"0"},{propertyName:"closed_date",operator:"NOT_HAS_PROPERTY"},{propertyName:"hubspot_owner_id",operator:"NOT_HAS_PROPERTY"}]}]},true);
   const qf=id=>({objectType:"TASK",limit:1,properties:["hs_createdate"],chatInsights:insights,
     filterGroups:[{filters:[{propertyName:"hs_queue_membership_ids",operator:"CONTAINS_TOKEN",value:id},{propertyName:"hs_task_status",operator:"IN",values:OPEN_STATUSES},{propertyName:"hubspot_owner_id",operator:"NOT_HAS_PROPERTY"}]}]});
-  watchSearch("qAll",qf("4046613"),false);watchSearch("qCb",qf("6411820"),false);watchSearch("qCruise",qf("12867798"),false);
+  watchSearch("qAll",qf("4046613"),false);watchSearch("qCb",qf("6411820"),false);watchSearch("qCruise",qf("12867798"),false);watchSearch("q360",qf("6411821"),false);
   const taskIds=TEAM.filter(a=>a.taskTarget).map(a=>a.id);
   watchSearch("tasks",{objectType:"TASK",limit:200,properties:["hubspot_owner_id","hs_timestamp"],chatInsights:insights,
     filterGroups:[{filters:[{propertyName:"hs_task_status",operator:"IN",values:OPEN_STATUSES},{propertyName:"hubspot_owner_id",operator:"IN",values:taskIds}]}]},true);
@@ -550,7 +551,7 @@ function renderReports(){
     ["Calls",[["Total Inbound Calls – T1",m("t1In")],["Total Outbound Calls – T1",m("t1Out")],["Total Inbound Calls – TA",m("taIn")],["Total Outbound Calls – TA",m("taOut")],["Missed Call Rate (MCR) – T1",fx(avg("t1Mcr"),1,"%")],["Missed Call Rate (MCR) – TA (6:00 AM–2:00 PM)",fx(avg("taMcr"),1,"%")]]],
     ["Tickets",[["Opening Number of Tickets",firstOf("ticketsOpening")??"n/a"],["Number of Aged Tickets",lastOf("ticketsAged")??"n/a"],["Tickets Closed per Agent",C+" total, "+per],["Average Ticket Turnaround Time (TAT)",fx(avg("ticketTatH"),1," h")],["Average Time to Close Tickets",fx(avg("ticketCloseH")!=null?avg("ticketCloseH")/24:null,1," days")]]],
     ["Chats",[["Total Closed Chats",m("chatsClosed")],["First Contact Resolution (FCR)",fx(avg("fcr"),0,"%")],["Chat Response Time (CRT)",avg("crtSec")==null?"n/a":Math.floor(avg("crtSec")/60)+"m "+Math.round(avg("crtSec")%60)+"s"],["Closed Chats per Agent",S(agentRows,"chatsClosed")+" total, "+per]]],
-    ["Task",[["Opening task – T1",firstOf("t1TasksOpening")??"n/a"],["Closed task – T1 (per agent)",S(agentRows,"t1TasksClosed")+" total, "+per],["Opening task – T2",firstOf("t2TasksOpening")??"n/a"],["Closed task – T2",m("t2TasksClosed")],["360 task",lastOf("t360")??"queue to confirm"],["Average TAT – T1",fx(avg("t1TatD"),1," days")],["Average TAT – T2",fx(avg("t2TatD"),1," days")],["CS Pending Enquiry Task",lastOf("pendingEnquiry")??"n/a"],["Remaining task",lastOf("tasksRemaining")??"n/a"]]]
+    ["Task",[["Opening task – T1",firstOf("t1TasksOpening")??"n/a"],["Closed task – T1 (per agent)",S(agentRows,"t1TasksClosed")+" total, "+per],["Opening task – T2",firstOf("t2TasksOpening")??"n/a"],["Closed task – T2",m("t2TasksClosed")],["360 task",lastOf("t360")??(live.q360?live.q360.total+" unassigned now (live)":"loading")],["Average TAT – T1",fx(avg("t1TatD"),1," days")],["Average TAT – T2",fx(avg("t2TatD"),1," days")],["CS Pending Enquiry Task",lastOf("pendingEnquiry")??"n/a"],["Remaining task",lastOf("tasksRemaining")??"n/a"]]]
   ];
   $("metrics").innerHTML=groups.map(g=>`<div class="mgroup"><h3>${g[0]}</h3>${g[1].map(x=>`<div><span>${x[0]}</span><b>${x[1]}</b></div>`).join("")}</div>`).join("");
 
